@@ -1,6 +1,9 @@
 ## Codebase Patterns
 - API routers for authenticated endpoints use `limiter_authenticated` (user-based rate limiting) not `limiter` (IP-based); import from `src.core.rate_limit`
 - Guest endpoints return `GuestRead.model_validate(guest)` — always validate ORM objects through Pydantic before returning
+- Frontend types/api.ts is auto-generated; when backend is unavailable, hand-edit it by adding paths, components.schemas, and operations entries following the existing pattern
+- Frontend API functions live in `lib/api/guests.ts`; use `authenticatedClient` (not `apiClient`) for all protected endpoints
+- Dashboard pages are client components ("use client"), use `useAuth()` hook for auth check + redirect pattern
 
 - Models live in `app/backend/src/db/models/` — UUID PKs use `server_default=func.gen_random_uuid()`, timestamps use `DateTime(timezone=True)` with `server_default=func.now()`
 - All models use SQLAlchemy `Mapped` + `mapped_column` typed annotations (not classic Column style)
@@ -70,4 +73,21 @@
   - `guest_in_other_wedding` fixture tests isolation without coupling to current user's wedding
   - `patch("src.services.guest_service.get_settings")` mocks settings at call site, not at definition site — mock the module where it's used
   - The `db_session` fixture auto-truncates tables between tests (TRUNCATE CASCADE), so fixture data is clean per test
+---
+
+## 2026-03-29 - US-006
+- Manually updated `app/frontend/types/api.ts` with GuestCreate, GuestRead, GuestUpdate, GuestList schemas and /guests + /guests/{guest_id} endpoint paths/operations
+- Created `app/frontend/lib/api/guests.ts` with listGuests, createGuest, updateGuest, deleteGuest functions using authenticatedClient
+- Created `app/frontend/src/app/dashboard/guests/page.tsx` with:
+  - Table with columns: Nome, Cidade/Estado, Intimidade, Convite (invite status), Resposta (response status)
+  - Colored badge components: InviteStatusBadge (yellow/green), ResponseStatusBadge (yellow/green/red/orange)
+  - Per-row edit link and delete button with confirmation dialog (DeleteDialog)
+  - Empty state with call-to-action link
+  - Auth guard + redirect via useAuth pattern
+- Updated `app/frontend/src/app/dashboard/page.tsx` to add Convidados nav link
+- **Learnings for future iterations:**
+  - `types/api.ts` is auto-generated; when backend unavailable, manually add: (1) path entry in `paths`, (2) schemas in `components.schemas`, (3) operation in `operations` — all three needed for openapi-fetch type safety
+  - `authenticatedClient.DELETE` with 204 response: `error` field is enough to check; no `data` is returned for 204
+  - Dashboard nav pattern: wrap brand + nav links in a flex div, keep logout on the right
+  - Status badge values from backend are lowercase English ('pending', 'enviado', etc.) — map to Portuguese labels in UI
 ---
