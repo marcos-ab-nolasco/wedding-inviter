@@ -6,6 +6,9 @@
 - For back_populates between models, use `TYPE_CHECKING` guard in wedding.py to avoid circular imports; in guest.py use string `"Wedding"` for the relationship target
 - Migration file naming: `YYYYmmdd_HHMM_<12-hex-rev>_<slug>.py`; down_revision must chain to the previous revision ID
 
+- Schemas follow BaseModel pattern; only GuestRead needs `model_config = ConfigDict(from_attributes=True)`
+- GuestList wraps `list[GuestRead]` — use this pattern for all list responses
+
 ---
 
 # Progress Log
@@ -20,4 +23,12 @@
   - The `.venv` was created with uv on Python 3.13 which is not available in this devcontainer; alembic autogenerate cannot run directly — migration was written manually
   - Use `from __future__ import annotations` + `TYPE_CHECKING` in wedding.py for clean circular import handling
   - `is_distant` Boolean column must have `server_default` set in migration or use Python-side `default=False` (used Python-side default in model, migration omits server_default for boolean)
+---
+
+## 2026-03-29 - US-002
+- Created `app/backend/src/schemas/guest.py` with GuestCreate, GuestRead, GuestUpdate, GuestList schemas
+- Updated `app/backend/src/schemas/__init__.py` to export all four guest schemas
+- **Learnings for future iterations:**
+  - Only the Read schema needs `model_config = ConfigDict(from_attributes=True)`; Create/Update/List do not need it
+  - GuestList wraps `list[GuestRead]` as `guests` field — consistent with PRD requirements
 ---
