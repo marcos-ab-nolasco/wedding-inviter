@@ -12,7 +12,7 @@ from src.core.security import create_wedding_invite_token
 from src.db.models.user import User
 from src.db.models.wedding import Wedding
 from src.db.session import get_db
-from src.schemas.wedding import InviteTokenResponse, WeddingWithMembers
+from src.schemas.wedding import InviteTokenResponse, WeddingMemberRead, WeddingWithMembers
 
 router = APIRouter(prefix="/wedding", tags=["wedding"])
 
@@ -65,7 +65,7 @@ async def get_my_wedding(
     members_result = await db.execute(
         select(User).where(User.wedding_id == current_user.wedding_id)
     )
-    members = list(members_result.scalars().all())
+    members = [WeddingMemberRead.model_validate(u) for u in members_result.scalars().all()]
 
     return WeddingWithMembers(
         id=wedding.id,

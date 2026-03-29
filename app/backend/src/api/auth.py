@@ -62,11 +62,11 @@ async def register(
         try:
             wedding_id_str = decode_wedding_invite_token(user_data.invite_token)
             wedding_uuid = UUID(wedding_id_str)
-        except (ValueError, Exception):
+        except (ValueError, Exception) as err:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid or expired invite token",
-            )
+            ) from err
 
         result = await db.execute(select(Wedding).where(Wedding.id == wedding_uuid))
         wedding = result.scalar_one_or_none()
