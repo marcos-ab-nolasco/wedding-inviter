@@ -1,3 +1,1 @@
-from src.services import chat
-
-__all__ = ["chat"]
+__all__: list[str] = []
