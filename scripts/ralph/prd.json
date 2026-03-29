@@ -92,7 +92,7 @@
         "mypy src passes from app/backend directory"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

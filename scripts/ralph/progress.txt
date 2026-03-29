@@ -60,3 +60,14 @@
   - `from src.services import guest_service` works as module import since services package has `__init__.py`
   - DELETE endpoint returns `None` (204 No Content) — FastAPI handles no body automatically
 ---
+
+## 2026-03-29 - US-005
+- Created `app/backend/tests/test_guests.py` with 6 tests covering guest CRUD happy paths and authorization boundary
+- Tests: create guest returns 201, list guests scoped to own wedding, update with partial body, delete returns 204, cross-wedding access returns 404, guest limit returns 400
+- Used `patch("src.services.guest_service.get_settings")` to override MAX_GUESTS_PER_WEDDING=0 for limit test
+- **Learnings for future iterations:**
+  - Test fixtures for wedding-linked users require: Wedding → User (with wedding_id FK) → auth_headers (separate fixture)
+  - `guest_in_other_wedding` fixture tests isolation without coupling to current user's wedding
+  - `patch("src.services.guest_service.get_settings")` mocks settings at call site, not at definition site — mock the module where it's used
+  - The `db_session` fixture auto-truncates tables between tests (TRUNCATE CASCADE), so fixture data is clean per test
+---
