@@ -1,0 +1,142 @@
+{
+  "project": "Wedding Inviter",
+  "branchName": "ralph/guest-management",
+  "description": "Guest Management MVP — CRUD for wedding guests with contextual fields for future AI-personalized invitations",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Guest SQLAlchemy model and Alembic migration",
+      "description": "As a developer, I need a guests table in the database with all fields required for the AI agent to generate personalized messages.",
+      "acceptanceCriteria": [
+        "Create Guest model in app/backend/src/db/models/guest.py following the same patterns as User and Wedding models (UUID PK, Mapped types, mapped_column, server-side timestamps)",
+        "Fields: id (UUID PK), wedding_id (UUID FK to weddings, NOT NULL, indexed), name (String, NOT NULL), nickname (String, nullable), relationship_type (String, nullable), friendship_level (String, nullable), intimacy (String, nullable), contact_frequency (String, nullable), last_contact_medium (String, nullable), city (String, nullable), state (String, nullable), is_distant (Boolean, default False), memory (Text, nullable), shared_element (Text, nullable), ideal_tone (String, nullable), notes (Text, nullable), invite_status (String, default 'pending'), response_status (String, default 'pending'), created_at (datetime with tz, server default), updated_at (datetime with tz, auto-update)",
+        "All string choice fields (intimacy, contact_frequency, etc.) are free-text strings — no database enums",
+        "FK relationship to Wedding model with back_populates",
+        "Export Guest from app/backend/src/db/models/__init__.py",
+        "Generate Alembic migration via: cd app/backend && alembic revision --autogenerate -m 'add guests table'",
+        "Migration applies cleanly: cd app/backend && alembic upgrade head",
+        "mypy src passes from app/backend directory"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Guest Pydantic schemas",
+      "description": "As a developer, I need request/response schemas for the Guest CRUD API.",
+      "acceptanceCriteria": [
+        "Create schemas in app/backend/src/schemas/guest.py following patterns from user.py and wedding.py",
+        "GuestCreate schema: name (str, required), all other guest fields optional with appropriate types",
+        "GuestRead schema: all fields including id (UUID), wedding_id (UUID), created_at, updated_at — use model_config with from_attributes=True",
+        "GuestUpdate schema: all fields optional (including name) for partial updates",
+        "GuestList schema: wraps list of GuestRead (e.g. guests: list[GuestRead])",
+        "Export schemas from app/backend/src/schemas/__init__.py",
+        "mypy src passes from app/backend directory"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Guest service with CRUD operations and guest limit",
+      "description": "As a developer, I need a service layer that handles guest CRUD logic, scopes queries to the user's wedding, and enforces a configurable maximum guest count.",
+      "acceptanceCriteria": [
+        "Add MAX_GUESTS_PER_WEDDING setting to app/backend/src/core/config.py with env var MAX_GUESTS_PER_WEDDING, default 500",
+        "Create app/backend/src/services/guest_service.py following existing service patterns",
+        "create_guest(db, wedding_id, data): creates guest linked to wedding_id — raises 400 if wedding already has MAX_GUESTS_PER_WEDDING guests",
+        "list_guests(db, wedding_id): returns all guests for the given wedding_id",
+        "get_guest(db, guest_id, wedding_id): returns guest only if it belongs to wedding_id, else None",
+        "update_guest(db, guest_id, wedding_id, data): partial update, returns updated guest or None if not found/wrong wedding",
+        "delete_guest(db, guest_id, wedding_id): deletes guest, returns True/False based on ownership",
+        "All queries filter by wedding_id to enforce data isolation",
+        "mypy src passes from app/backend directory"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Guest API router with CRUD endpoints",
+      "description": "As an authenticated user, I can create, list, update, and delete guests belonging to my wedding via REST API.",
+      "acceptanceCriteria": [
+        "Create app/backend/src/api/guests.py with APIRouter prefix '/guests' and tag 'guests'",
+        "POST /guests — creates guest using authenticated user's wedding_id, returns 201 with GuestRead",
+        "GET /guests — returns GuestList with all guests for authenticated user's wedding_id",
+        "PATCH /guests/{guest_id} — partial update, returns GuestRead, 404 if not found or wrong wedding",
+        "DELETE /guests/{guest_id} — deletes guest, returns 204, 404 if not found or wrong wedding",
+        "All endpoints use Depends(get_current_user) for authentication following auth.py patterns",
+        "Include guests router in app/backend/src/main.py",
+        "Rate limiting applied consistently with existing routers",
+        "mypy src passes from app/backend directory"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Guest API automated tests",
+      "description": "As a developer, I need tests covering guest CRUD happy paths and the authorization boundary.",
+      "acceptanceCriteria": [
+        "Test file at app/backend/tests/ following existing test patterns and fixtures",
+        "Test: create guest returns 201 with correct data",
+        "Test: list guests returns only guests for the authenticated user's wedding",
+        "Test: update guest with partial body returns updated fields",
+        "Test: delete guest returns 204",
+        "Test: accessing a guest from another wedding returns 404",
+        "Test: creating guest beyond MAX_GUESTS_PER_WEDDING limit returns 400",
+        "All tests pass: cd app/backend && pytest",
+        "mypy src passes from app/backend directory"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Guest list page with table, badges, and navigation",
+      "description": "As a user, I can see all my wedding guests in a table at /dashboard/guests with status badges and a link in the dashboard navigation.",
+      "acceptanceCriteria": [
+        "Regenerate frontend types: run make generate-types (or scripts/generate-types.sh) so types/api.ts includes Guest schemas",
+        "New page at app/frontend/src/app/dashboard/guests/page.tsx (App Router)",
+        "Add 'Convidados' link to dashboard navigation",
+        "Table displays columns: Name, City/State, Intimacy, Invite Status, Response Status",
+        "Colored badges: Invite — 'Pendente' yellow, 'Enviado' green; Response — 'Pendente' yellow, 'Confirmado' green, 'Ausente' red, 'Incerto' orange",
+        "Each row has edit and delete action buttons",
+        "Delete button shows confirmation dialog displaying the guest's name",
+        "Empty state with call-to-action when no guests exist",
+        "Data fetched via api-client.ts (openapi-fetch) with types from types/api.ts",
+        "tsc --noEmit passes from app/frontend directory",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add/edit guest modal with sectioned form",
+      "description": "As a user, I can add a new guest or edit an existing one through a modal form with fields organized into logical sections.",
+      "acceptanceCriteria": [
+        "Modal dialog opens from 'Adicionar convidado' button and from row edit button",
+        "Form grouped into 3 sections with clear headings: 'Dados pessoais' (name, nickname, relationship_type, city, state, is_distant), 'Contexto para IA' (friendship_level, intimacy, contact_frequency, last_contact_medium, ideal_tone, memory, shared_element), 'Status e observações' (invite_status, response_status, notes)",
+        "Select/dropdown for: intimacy, contact_frequency, last_contact_medium, ideal_tone, invite_status, response_status",
+        "Text inputs for: name, nickname, relationship_type, city, state",
+        "Textarea inputs for: memory, shared_element, notes",
+        "Checkbox for: is_distant",
+        "Client-side validation: name is required, form cannot submit without it",
+        "Create mode: POST /guests on submit, modal closes, list refreshes",
+        "Edit mode: form pre-filled with guest data, PATCH /guests/{id} on submit, modal closes, list refreshes",
+        "API calls via api-client.ts with types from types/api.ts",
+        "tsc --noEmit passes from app/frontend directory",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
