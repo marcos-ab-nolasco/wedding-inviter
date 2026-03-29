@@ -108,4 +108,3 @@ async def test_rate_limit_resets_after_window(client: AsyncClient) -> None:
     response = await client.post("/auth/login", auth=("user7@example.com", "password"))
     assert response.status_code in (200, 401), "Rate limit should have reset"
     assert response.status_code != 429
-

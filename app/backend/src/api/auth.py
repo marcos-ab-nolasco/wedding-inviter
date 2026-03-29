@@ -94,7 +94,9 @@ async def register(
     await db.commit()
     await db.refresh(new_user)
 
-    logger.info(f"User registered: user_id={new_user.id} email={new_user.email} wedding_id={new_user.wedding_id}")
+    logger.info(
+        f"User registered: user_id={new_user.id} email={new_user.email} wedding_id={new_user.wedding_id}"
+    )
 
     return new_user
 
