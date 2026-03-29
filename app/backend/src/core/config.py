@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "DEBUG"
 
+    # Guest limits
+    MAX_GUESTS_PER_WEDDING: int = 500
+
 
 @lru_cache
 def get_settings() -> Settings:
