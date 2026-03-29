@@ -1,4 +1,5 @@
 .PHONY: help setup-local setup-backend setup-frontend setup-docker generate-types docker-build docker-up docker-down docker-logs docker-restart \
+	docker-rebuild-frontend docker-rebuild-backend \
 	docker-migrate docker-migrate-create migrate migrate-create migrate-downgrade lint-backend lint-backend-fix \
 	lint-frontend lint-frontend-fix lint lint-fix test-up test-down test-backend test-frontend test test-cov clean
 
@@ -46,6 +47,14 @@ docker-logs: ## Show Docker Compose logs
 
 docker-restart: ## Restart Docker Compose services
 	docker compose -f infrastructure/docker-compose.yml restart
+
+docker-rebuild-frontend: ## Rebuild and restart only the frontend container
+	docker compose -f infrastructure/docker-compose.yml build frontend
+	docker compose -f infrastructure/docker-compose.yml up -d frontend
+
+docker-rebuild-backend: ## Rebuild and restart backend (keeps postgres and redis running)
+	docker compose -f infrastructure/docker-compose.yml build backend
+	docker compose -f infrastructure/docker-compose.yml up -d backend
 
 docker-migrate: ## Run migrations in Docker container
 	docker compose -f infrastructure/docker-compose.yml exec backend alembic upgrade head
