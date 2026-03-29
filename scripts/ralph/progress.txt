@@ -1,7 +1,23 @@
 ## Codebase Patterns
-- (none yet — first iteration will populate)
+- Models live in `app/backend/src/db/models/` — UUID PKs use `server_default=func.gen_random_uuid()`, timestamps use `DateTime(timezone=True)` with `server_default=func.now()`
+- All models use SQLAlchemy `Mapped` + `mapped_column` typed annotations (not classic Column style)
+- The `.venv` in `app/backend/` was created with uv and pointed to Python 3.13 (now unavailable); migrations must be written manually or the venv must be recreated
+- `alembic/env.py` must import every model explicitly (e.g. `from src.db.models import Guest, User, Wedding  # noqa: F401`) for autogenerate to see the table
+- For back_populates between models, use `TYPE_CHECKING` guard in wedding.py to avoid circular imports; in guest.py use string `"Wedding"` for the relationship target
+- Migration file naming: `YYYYmmdd_HHMM_<12-hex-rev>_<slug>.py`; down_revision must chain to the previous revision ID
 
 ---
 
 # Progress Log
 
+## 2026-03-29 22:10 - US-001
+- Created `app/backend/src/db/models/guest.py` with all required fields (UUID PK, FK to weddings, all AI context fields as free-text strings, status fields, timestamps)
+- Updated `app/backend/src/db/models/wedding.py` to add `guests` relationship with `back_populates`, using `TYPE_CHECKING` to avoid circular imports
+- Updated `app/backend/src/db/models/__init__.py` to export `Guest`
+- Updated `app/backend/alembic/env.py` to import `Guest` for autogenerate support
+- Created manual migration `app/backend/alembic/versions/20260329_2210_a973fbe23ccb_add_guests_table.py` (written manually because the .venv Python 3.13 interpreter is missing in this environment)
+- **Learnings for future iterations:**
+  - The `.venv` was created with uv on Python 3.13 which is not available in this devcontainer; alembic autogenerate cannot run directly — migration was written manually
+  - Use `from __future__ import annotations` + `TYPE_CHECKING` in wedding.py for clean circular import handling
+  - `is_distant` Boolean column must have `server_default` set in migration or use Python-side `default=False` (used Python-side default in model, migration omits server_default for boolean)
+---
