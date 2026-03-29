@@ -21,7 +21,6 @@ dependencies = [
     "redis",
     "httpx",
     "openai",
-    "anthropic",
     "tenacity",
     "slowapi>=0.1.9",
 ]
