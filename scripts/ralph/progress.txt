@@ -4,6 +4,8 @@
 - Frontend types/api.ts is auto-generated; when backend is unavailable, hand-edit it by adding paths, components.schemas, and operations entries following the existing pattern
 - Frontend API functions live in `lib/api/guests.ts`; use `authenticatedClient` (not `apiClient`) for all protected endpoints
 - Dashboard pages are client components ("use client"), use `useAuth()` hook for auth check + redirect pattern
+- Modal forms use react-hook-form with `register` + `handleSubmit`; place submit trigger on footer button via `onClick={handleSubmit(onSubmit)}` with `type="button"` (avoids double-fire from native form submit)
+- GuestCreate.invite_status/response_status are `string` (not nullable) — use `|| undefined` not `|| null` for optional selects; GuestUpdate versions are `string | null`
 
 - Models live in `app/backend/src/db/models/` — UUID PKs use `server_default=func.gen_random_uuid()`, timestamps use `DateTime(timezone=True)` with `server_default=func.now()`
 - All models use SQLAlchemy `Mapped` + `mapped_column` typed annotations (not classic Column style)
@@ -90,4 +92,22 @@
   - `authenticatedClient.DELETE` with 204 response: `error` field is enough to check; no `data` is returned for 204
   - Dashboard nav pattern: wrap brand + nav links in a flex div, keep logout on the right
   - Status badge values from backend are lowercase English ('pending', 'enviado', etc.) — map to Portuguese labels in UI
+---
+
+## 2026-03-29 - US-007
+- Updated `app/frontend/src/app/dashboard/guests/page.tsx`:
+  - Replaced "Adicionar convidado" Link with button opening GuestFormModal
+  - Replaced row "Editar" Link with button opening GuestFormModal pre-filled with guest data
+  - Added `GuestFormModal` component with 3 sections: Dados pessoais, Contexto para IA, Status e observações
+  - Selects for: intimacy, contact_frequency, last_contact_medium, ideal_tone, invite_status, response_status
+  - Text inputs for: name, nickname, relationship_type, city, state
+  - Textarea inputs for: memory, shared_element, notes
+  - Checkbox for: is_distant
+  - Client-side validation via react-hook-form: name is required
+  - Create mode: POST /guests; edit mode: PATCH /guests/{id}; list refreshes optimistically on success
+- **Learnings for future iterations:**
+  - Modal footer submit button must use `type="button"` + `onClick={handleSubmit(onSubmit)}` to avoid double-trigger with form's onSubmit
+  - GuestCreate.invite_status/response_status are `string` (not nullable); use `|| undefined` for optional selects; GuestUpdate accepts `string | null`
+  - `nullIfEmpty` helper (trim then return null) is a clean pattern for optional text fields
+  - Modal scroll: use flex-col with `overflow-y-auto flex-1` on the form body and fixed header/footer
 ---
