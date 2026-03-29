@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from src.api import auth, wedding
+from src.api import auth, guests, wedding
 from src.core.config import get_settings
 from src.core.lifespan import lifespan
 from src.core.logging_config.middleware import LoggingMiddleware
@@ -48,6 +48,7 @@ app.add_middleware(LoggingMiddleware)
 # Include routers
 app.include_router(auth.router)
 app.include_router(wedding.router)
+app.include_router(guests.router)
 
 
 @app.get("/health_check")
