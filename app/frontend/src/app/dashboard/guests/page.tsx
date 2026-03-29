@@ -192,8 +192,8 @@ function GuestFormModal({
           ideal_tone: nullIfEmpty(values.ideal_tone),
           memory: nullIfEmpty(values.memory),
           shared_element: nullIfEmpty(values.shared_element),
-          invite_status: values.invite_status || undefined,
-          response_status: values.response_status || undefined,
+          invite_status: values.invite_status,
+          response_status: values.response_status,
           notes: nullIfEmpty(values.notes),
         };
         const saved = await createGuest(body);

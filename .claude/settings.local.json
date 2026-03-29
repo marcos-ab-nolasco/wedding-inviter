@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python -c \"from src.main import app\")",
-      "Bash(pnpm test:*)",
-      "Bash(pytest -v)"
-    ]
-  }
-}

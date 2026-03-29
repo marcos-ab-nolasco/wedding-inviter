@@ -16,7 +16,7 @@ setup-backend: ## Install backend dependencies (creates .venv only if it doesn't
 	@echo "Backend ready at app/backend/.venv"
 
 setup-frontend: ## Install frontend dependencies via pnpm (skips if node_modules is up to date)
-	cd app/frontend && pnpm install --config.confirmModulesPurge=false
+	cd app/frontend && pnpm install
 	@echo "Frontend ready at app/frontend/node_modules"
 
 setup-local: setup-backend setup-frontend ## Install all local dependencies (backend + frontend)
