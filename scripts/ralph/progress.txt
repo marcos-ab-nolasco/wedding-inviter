@@ -1,4 +1,7 @@
 ## Codebase Patterns
+- API routers for authenticated endpoints use `limiter_authenticated` (user-based rate limiting) not `limiter` (IP-based); import from `src.core.rate_limit`
+- Guest endpoints return `GuestRead.model_validate(guest)` — always validate ORM objects through Pydantic before returning
+
 - Models live in `app/backend/src/db/models/` — UUID PKs use `server_default=func.gen_random_uuid()`, timestamps use `DateTime(timezone=True)` with `server_default=func.now()`
 - All models use SQLAlchemy `Mapped` + `mapped_column` typed annotations (not classic Column style)
 - The `.venv` in `app/backend/` was created with uv and pointed to Python 3.13 (now unavailable); migrations must be written manually or the venv must be recreated
@@ -44,4 +47,16 @@
   - `model_dump(exclude_unset=True)` is the right pattern for partial updates (GuestUpdate) to avoid overwriting fields with None
   - `select(func.count()).select_from(Guest).where(...)` is the async SQLAlchemy pattern for count queries
   - Service layer does not import schemas' `__init__`; import directly from `src.schemas.guest`
+---
+
+## 2026-03-29 - US-004
+- Created `app/backend/src/api/guests.py` with `APIRouter(prefix="/guests", tags=["guests"])`
+- Endpoints: POST /guests (201), GET /guests, PATCH /guests/{guest_id}, DELETE /guests/{guest_id} (204)
+- All endpoints use `Depends(get_current_user)` and `limiter_authenticated.limit("60/minute")`
+- Endpoints guard against `current_user.wedding_id is None` (400) and missing guest (404)
+- Included `guests.router` in `app/backend/src/main.py`
+- **Learnings for future iterations:**
+  - `limiter_authenticated` is the correct limiter for authenticated routes (per-user rate limiting); `limiter` is IP-based (for auth/public endpoints)
+  - `from src.services import guest_service` works as module import since services package has `__init__.py`
+  - DELETE endpoint returns `None` (204 No Content) — FastAPI handles no body automatically
 ---
