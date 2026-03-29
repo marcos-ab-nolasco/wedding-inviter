@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.session import Base
+
+if TYPE_CHECKING:
+    from src.db.models.wedding import Wedding
 
 
 class Guest(Base):
@@ -49,7 +55,7 @@ class Guest(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    wedding: Mapped["Wedding"] = relationship("Wedding", back_populates="guests")  # type: ignore[name-defined]
+    wedding: Mapped[Wedding] = relationship("Wedding", back_populates="guests")
 
     def __repr__(self) -> str:
         return f"<Guest(id={self.id}, name={self.name}, wedding_id={self.wedding_id})>"

@@ -111,7 +111,8 @@ type GuestFormValues = {
 const inputClass =
   "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 text-sm";
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
-const sectionHeadingClass = "text-base font-semibold text-gray-900 mb-3 pb-1 border-b border-gray-200";
+const sectionHeadingClass =
+  "text-base font-semibold text-gray-900 mb-3 pb-1 border-b border-gray-200";
 
 function GuestFormModal({
   guest,
@@ -223,7 +224,10 @@ function GuestFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="overflow-y-auto flex-1 px-6 py-4 space-y-6"
+        >
           {formError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
               {formError}
@@ -245,9 +249,7 @@ function GuestFormModal({
                   className={inputClass}
                   placeholder="Nome completo"
                 />
-                {errors.name && (
-                  <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>
-                )}
+                {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
               </div>
               <div>
                 <label htmlFor="nickname" className={labelClass}>
@@ -343,7 +345,11 @@ function GuestFormModal({
                 <label htmlFor="contact_frequency" className={labelClass}>
                   Frequência de contato
                 </label>
-                <select id="contact_frequency" {...register("contact_frequency")} className={inputClass}>
+                <select
+                  id="contact_frequency"
+                  {...register("contact_frequency")}
+                  className={inputClass}
+                >
                   <option value="">Selecione...</option>
                   <option value="diário">Diário</option>
                   <option value="semanal">Semanal</option>
@@ -355,7 +361,11 @@ function GuestFormModal({
                 <label htmlFor="last_contact_medium" className={labelClass}>
                   Último meio de contato
                 </label>
-                <select id="last_contact_medium" {...register("last_contact_medium")} className={inputClass}>
+                <select
+                  id="last_contact_medium"
+                  {...register("last_contact_medium")}
+                  className={inputClass}
+                >
                   <option value="">Selecione...</option>
                   <option value="WhatsApp">WhatsApp</option>
                   <option value="telefone">Telefone</option>
@@ -420,7 +430,11 @@ function GuestFormModal({
                 <label htmlFor="response_status" className={labelClass}>
                   Status da resposta
                 </label>
-                <select id="response_status" {...register("response_status")} className={inputClass}>
+                <select
+                  id="response_status"
+                  {...register("response_status")}
+                  className={inputClass}
+                >
                   <option value="pending">Pendente</option>
                   <option value="confirmado">Confirmado</option>
                   <option value="ausente">Ausente</option>
