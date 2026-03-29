@@ -1,12 +1,11 @@
 import logging
 
-# import time
-from fastapi import FastAPI  # , Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from src.api import auth, chat
+from src.api import auth, wedding
 from src.core.config import get_settings
 from src.core.lifespan import lifespan
 from src.core.logging_config.middleware import LoggingMiddleware
@@ -18,8 +17,8 @@ from src.version import __version__
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Fullstack Template API",
-    description="FastAPI backend with authentication and AI integration",
+    title="Wedding Inviter API",
+    description="API para gerenciamento de lista de casamento e geração de convites personalizados",
     version=__version__,
     debug=get_settings().LOG_LEVEL == "DEBUG",
     openapi_url="/api/v1/openapi.json",
@@ -48,7 +47,7 @@ app.add_middleware(LoggingMiddleware)
 
 # Include routers
 app.include_router(auth.router)
-app.include_router(chat.router)
+app.include_router(wedding.router)
 
 
 @app.get("/health_check")

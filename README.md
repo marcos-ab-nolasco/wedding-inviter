@@ -1,6 +1,6 @@
-# fullstack-next-fast-template
+# wedding-inviter
 
-Template fullstack (FastAPI + Next.js) com foco em integrações de IA, pensado para ser customizável e fácil de colocar em produção.
+Aplicação fullstack (FastAPI + Next.js) para gerenciamento de lista de casamento, controle de convites e geração personalizada de mensagens via agente de IA.
 
 ## Stack
 
@@ -116,4 +116,4 @@ Cada branch representa uma feature. O checklist antes de abrir PR é:
 
 ## Apêndice / Notas
 
-Template em desenvolvimento para aplicações fullstack integradas com IA, feito para ser customizável e facilmente colocado em produção.
+Projeto em desenvolvimento. Funcionalidades principais: lista de convidados, status de convite/confirmação e geração de mensagem personalizada por IA.

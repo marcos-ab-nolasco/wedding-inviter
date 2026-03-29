@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "paplay ~/.claude/songs/duolingo-correct.mp3 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  },
+  "includeCoAuthoredBy": false
+}

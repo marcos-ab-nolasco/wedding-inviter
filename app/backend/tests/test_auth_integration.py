@@ -24,11 +24,11 @@ async def test_multiple_requests_from_same_user_use_cache(
     # Make 5 authenticated requests to different endpoints
     # All should use the SAME cache for user lookup
     endpoints = [
-        "/chat/conversations",
-        "/chat/providers",
-        "/chat/conversations",  # Repeated
         "/auth/me",
-        "/chat/conversations",  # Repeated again
+        "/auth/me",
+        "/auth/me",  # Repeated
+        "/auth/me",
+        "/auth/me",  # Repeated again
     ]
 
     for endpoint in endpoints:
@@ -102,7 +102,7 @@ async def test_token_refresh_does_not_break_cache(
     invalidate the cache or require a new database query.
     """
     # Make request with original token
-    response = await client.get("/chat/conversations", headers=auth_headers)
+    response = await client.get("/auth/me", headers=auth_headers)
     assert response.status_code == 200
 
     # Simulate token refresh - get new token for same user
@@ -113,7 +113,7 @@ async def test_token_refresh_does_not_break_cache(
 
     # Make request with NEW token (but same user_id)
     # Should still hit cache because user_id is the same
-    response = await client.get("/chat/conversations", headers=new_headers)
+    response = await client.get("/auth/me", headers=new_headers)
     assert response.status_code == 200
 
     # Both tokens authenticate the same user

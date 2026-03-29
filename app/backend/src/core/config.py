@@ -30,9 +30,11 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str
 
-    # AI Providers
-    OPENAI_API_KEY: SecretStr | None = None
-    ANTHROPIC_API_KEY: SecretStr | None = None
+    # OpenAI
+    OPENAI_API_KEY: SecretStr
+
+    # Frontend
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
 
     @property
     def cors_origins_list(self) -> list[str]:

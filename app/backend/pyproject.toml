@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "backend"
+name = "wedding-inviter-backend"
 dynamic = ["version"]
-description = "FastAPI backend for fullstack template"
+description = "FastAPI backend for wedding-inviter"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
@@ -21,7 +21,6 @@ dependencies = [
     "redis",
     "httpx",
     "openai",
-    "anthropic",
     "tenacity",
     "slowapi>=0.1.9",
 ]

@@ -81,3 +81,30 @@ def decode_token(token: str) -> dict[str, Any]:
         return payload
     except JWTError as e:
         raise ValueError("Could not validate credentials") from e
+
+
+WEDDING_INVITE_TOKEN_EXPIRE_DAYS = 7
+
+
+def create_wedding_invite_token(wedding_id: str) -> str:
+    """Create a signed JWT invite token for a wedding (7-day expiry)."""
+    settings = get_settings()
+    expire = datetime.now(UTC) + timedelta(days=WEDDING_INVITE_TOKEN_EXPIRE_DAYS)
+    to_encode = {"wedding_id": wedding_id, "exp": expire, "type": "wedding_invite"}
+    return jwt.encode(
+        to_encode, settings.SECRET_KEY.get_secret_value(), algorithm=settings.ALGORITHM
+    )
+
+
+def decode_wedding_invite_token(token: str) -> str:
+    """Decode invite token and return wedding_id string.
+
+    Raises ValueError if the token is invalid, expired, or of the wrong type.
+    """
+    payload = decode_token(token)
+    if payload.get("type") != "wedding_invite":
+        raise ValueError("Invalid token type")
+    wedding_id = payload.get("wedding_id")
+    if not wedding_id:
+        raise ValueError("Missing wedding_id in token")
+    return str(wedding_id)

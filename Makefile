@@ -1,10 +1,25 @@
-.PHONY: help setup-docker generate-types docker-build docker-up docker-down docker-logs docker-restart \
+.PHONY: help setup-local setup-backend setup-frontend setup-docker generate-types docker-build docker-up docker-down docker-logs docker-restart \
+	docker-rebuild-frontend docker-rebuild-backend \
 	docker-migrate docker-migrate-create migrate migrate-create migrate-downgrade lint-backend lint-backend-fix \
 	lint-frontend lint-frontend-fix lint lint-fix test-up test-down test-backend test-frontend test test-cov clean
 
 help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+setup-backend: ## Install backend dependencies (creates .venv only if it doesn't exist)
+	@if [ ! -d app/backend/.venv ]; then \
+		echo "Creating backend venv..."; \
+		cd app/backend && uv venv .venv; \
+	fi
+	cd app/backend && uv sync --extra dev
+	@echo "Backend ready at app/backend/.venv"
+
+setup-frontend: ## Install frontend dependencies via pnpm (skips if node_modules is up to date)
+	cd app/frontend && pnpm install
+	@echo "Frontend ready at app/frontend/node_modules"
+
+setup-local: setup-backend setup-frontend ## Install all local dependencies (backend + frontend)
 
 setup-docker: ## Install dependencies
 	@if [ ! -f .env ]; then \
@@ -32,6 +47,14 @@ docker-logs: ## Show Docker Compose logs
 
 docker-restart: ## Restart Docker Compose services
 	docker compose -f infrastructure/docker-compose.yml restart
+
+docker-rebuild-frontend: ## Rebuild and restart only the frontend container
+	docker compose -f infrastructure/docker-compose.yml build frontend
+	docker compose -f infrastructure/docker-compose.yml up -d frontend
+
+docker-rebuild-backend: ## Rebuild and restart backend (keeps postgres and redis running)
+	docker compose -f infrastructure/docker-compose.yml build backend
+	docker compose -f infrastructure/docker-compose.yml up -d backend
 
 docker-migrate: ## Run migrations in Docker container
 	docker compose -f infrastructure/docker-compose.yml exec backend alembic upgrade head

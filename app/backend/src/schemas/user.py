@@ -15,12 +15,14 @@ class UserCreate(UserBase):
     """Schema for creating a new user."""
 
     password: str = Field(..., min_length=8, max_length=100)
+    invite_token: str | None = None
 
 
 class UserRead(UserBase):
     """Schema for reading user data."""
 
     id: UUID
+    wedding_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
