@@ -55,7 +55,6 @@ def avoid_external_requests(mocker: MockerFixture) -> None:
     mocker.patch("httpx._transports.default.HTTPTransport.handle_request", new=fail)
 
 
-
 @pytest.fixture(scope="session")
 def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     """Create event loop for session scope."""
