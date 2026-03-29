@@ -8,6 +8,8 @@
 
 - Schemas follow BaseModel pattern; only GuestRead needs `model_config = ConfigDict(from_attributes=True)`
 - GuestList wraps `list[GuestRead]` — use this pattern for all list responses
+- Service functions are async and accept `AsyncSession`; use `select(func.count()).select_from(Model)` for count queries
+- Guest service raises `HTTPException(400)` directly when limit is exceeded (no custom domain exception needed)
 
 ---
 
@@ -31,4 +33,15 @@
 - **Learnings for future iterations:**
   - Only the Read schema needs `model_config = ConfigDict(from_attributes=True)`; Create/Update/List do not need it
   - GuestList wraps `list[GuestRead]` as `guests` field — consistent with PRD requirements
+---
+
+## 2026-03-29 - US-003
+- Added `MAX_GUESTS_PER_WEDDING: int = 500` setting to `app/backend/src/core/config.py`
+- Created `app/backend/src/services/guest_service.py` with: `create_guest`, `list_guests`, `get_guest`, `update_guest`, `delete_guest`
+- All queries filter by `wedding_id` for data isolation
+- `create_guest` raises `HTTPException(400)` if wedding already has `MAX_GUESTS_PER_WEDDING` guests
+- **Learnings for future iterations:**
+  - `model_dump(exclude_unset=True)` is the right pattern for partial updates (GuestUpdate) to avoid overwriting fields with None
+  - `select(func.count()).select_from(Guest).where(...)` is the async SQLAlchemy pattern for count queries
+  - Service layer does not import schemas' `__init__`; import directly from `src.schemas.guest`
 ---
