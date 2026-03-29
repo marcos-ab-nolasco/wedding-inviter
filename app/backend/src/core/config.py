@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: SecretStr
 
+    # Frontend
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

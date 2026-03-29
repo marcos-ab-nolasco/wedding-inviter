@@ -18,8 +18,14 @@ from src.core.auth.session import (
 from src.core.config import get_settings
 from src.core.dependencies import get_current_user
 from src.core.rate_limit import limiter
-from src.core.security import create_access_token, hash_password, verify_password
+from src.core.security import (
+    create_access_token,
+    decode_wedding_invite_token,
+    hash_password,
+    verify_password,
+)
 from src.db.models.user import User
+from src.db.models.wedding import Wedding
 from src.db.session import get_db
 from src.schemas.auth import Token
 from src.schemas.user import UserCreate, UserRead
@@ -51,18 +57,44 @@ async def register(
             detail="Email already registered",
         )
 
-    # Create new user
+    # Determine which wedding this user belongs to
+    if user_data.invite_token:
+        try:
+            wedding_id_str = decode_wedding_invite_token(user_data.invite_token)
+            wedding_uuid = UUID(wedding_id_str)
+        except (ValueError, Exception):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired invite token",
+            )
+
+        result = await db.execute(select(Wedding).where(Wedding.id == wedding_uuid))
+        wedding = result.scalar_one_or_none()
+        if wedding is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Wedding not found",
+            )
+        target_wedding_id = wedding_uuid
+    else:
+        new_wedding = Wedding()
+        db.add(new_wedding)
+        await db.flush()
+        target_wedding_id = new_wedding.id
+
+    # Create user linked to the wedding
     new_user = User(
         email=user_data.email,
         full_name=user_data.full_name,
         hashed_password=hash_password(user_data.password),
+        wedding_id=target_wedding_id,
     )
 
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
 
-    logger.info(f"User registered: user_id={new_user.id} email={new_user.email}")
+    logger.info(f"User registered: user_id={new_user.id} email={new_user.email} wedding_id={new_user.wedding_id}")
 
     return new_user
 
