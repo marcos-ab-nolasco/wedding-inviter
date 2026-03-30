@@ -1,0 +1,12 @@
+{
+  "name": "Wedding Inviter (Dev)",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+
+  "remoteUser": "root",
+
+  "features": {},
+
+  "postCreateCommand": "echo '✅ Devcontainer pronto! Instale Python + Node.js + Claude Code manualmente e rode: make setup-local && make migrate'"
+}

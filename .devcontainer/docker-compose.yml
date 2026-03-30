@@ -1,0 +1,87 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/base:bookworm
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://devuser:devpass@postgres:5432/devdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=devuser
+      - POSTGRES_PASSWORD=devpass
+      - POSTGRES_DB=devdb
+      # Redis
+      - REDIS_URL=redis://:devpass@redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_PREFIX=wedding_cache
+      # Security
+      - SECRET_KEY=dev-secret-key-not-for-production
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - REFRESH_TOKEN_COOKIE_NAME=refresh_token
+      - REFRESH_TOKEN_COOKIE_SECURE=false
+      - REFRESH_TOKEN_COOKIE_SAMESITE=lax
+      # App
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+      # Adicione aqui sua chave quando for rodar o Ralph:
+      # - ANTHROPIC_API_KEY=sk-ant-...
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: devdb
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d devdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres_test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d testdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass devpass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "devpass", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres-data:
+  redis-data:

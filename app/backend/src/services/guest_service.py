@@ -6,12 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import get_settings
 from src.db.models.guest import Guest
+from src.db.models.wedding import Wedding
 from src.schemas.guest import GuestCreate, GuestUpdate
 
 
 async def create_guest(db: AsyncSession, wedding_id: UUID, data: GuestCreate) -> Guest:
     """Create a guest for the given wedding, enforcing the max guest limit."""
     settings = get_settings()
+
+    # Lock the wedding row to serialize concurrent inserts
+    await db.execute(select(Wedding).where(Wedding.id == wedding_id).with_for_update())
+
     count_result = await db.execute(
         select(func.count()).select_from(Guest).where(Guest.wedding_id == wedding_id)
     )
@@ -52,6 +57,19 @@ async def update_guest(
         return None
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Reject null values for non-nullable fields
+    null_non_nullable = [
+        field
+        for field in data._non_nullable_fields
+        if field in update_data and update_data[field] is None
+    ]
+    if null_non_nullable:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Fields cannot be null: {', '.join(sorted(null_non_nullable))}",
+        )
+
     for field, value in update_data.items():
         setattr(guest, field, value)
 

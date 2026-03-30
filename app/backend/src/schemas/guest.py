@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -65,6 +66,11 @@ class GuestUpdate(BaseModel):
     notes: str | None = None
     invite_status: str | None = None
     response_status: str | None = None
+
+    # Fields that must not be set to null (DB NOT NULL constraint)
+    _non_nullable_fields: ClassVar[frozenset[str]] = frozenset(
+        {"name", "is_distant", "invite_status", "response_status"}
+    )
 
 
 class GuestList(BaseModel):
