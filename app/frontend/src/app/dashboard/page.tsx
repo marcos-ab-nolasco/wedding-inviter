@@ -1,19 +1,32 @@
 "use client";
 
+import { listGuests } from "@/lib/api/guests";
+import type { GuestRead } from "@/lib/api/guests";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const router = useRouter();
+  const [guests, setGuests] = useState<GuestRead[]>([]);
+  const [loadingGuests, setLoadingGuests] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login");
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      listGuests()
+        .then(setGuests)
+        .catch(() => {})
+        .finally(() => setLoadingGuests(false));
+    }
+  }, [isAuthenticated]);
 
   const handleLogout = async () => {
     await logout();
@@ -22,29 +35,66 @@ export default function DashboardPage() {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Carregando...</div>
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-stone-400 text-sm">Carregando...</div>
       </div>
     );
   }
 
+  const firstName = user?.full_name?.split(" ")[0] ?? user?.full_name ?? "";
+
+  const stats = [
+    {
+      label: "Total de convidados",
+      value: guests.length,
+      description: "cadastrados",
+      valueClass: "text-stone-900",
+    },
+    {
+      label: "Confirmados",
+      value: guests.filter((g) => g.response_status === "confirmado").length,
+      description: "confirmaram presença",
+      valueClass: "text-emerald-700",
+    },
+    {
+      label: "Aguardando resposta",
+      value: guests.filter((g) => g.response_status === "pending").length,
+      description: "sem resposta",
+      valueClass: "text-amber-700",
+    },
+    {
+      label: "Ausentes",
+      value: guests.filter((g) => g.response_status === "ausente").length,
+      description: "não poderão comparecer",
+      valueClass: "text-red-700",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-stone-50">
+      <nav className="bg-white border-b border-stone-200">
+        <div className="max-w-5xl mx-auto px-6">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-6">
-              <h1 className="text-xl font-semibold text-gray-900">Wedding Inviter</h1>
+            <div className="flex items-center gap-8">
+              <span className="text-base font-semibold text-stone-900 tracking-tight">
+                Wedding Inviter
+              </span>
+              <Link
+                href="/dashboard"
+                className="text-sm font-medium text-stone-900 border-b-2 border-stone-900 pb-0.5"
+              >
+                Painel
+              </Link>
               <Link
                 href="/dashboard/guests"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition"
+                className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors"
               >
                 Convidados
               </Link>
             </div>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+              className="text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors"
             >
               Sair
             </button>
@@ -52,12 +102,44 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Olá, {user?.full_name}!</h2>
-          <p className="text-gray-500 text-sm">
-            Em breve: lista de convidados e geração de convites personalizados.
-          </p>
+      <main className="max-w-5xl mx-auto px-6 py-10">
+        {/* Greeting */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-stone-900 tracking-tight">Olá, {firstName}!</h1>
+          <p className="mt-1 text-stone-500 text-sm">Aqui está um resumo do seu casamento.</p>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {stats.map((stat) => (
+            <div key={stat.label} className="bg-white rounded-xl border border-stone-200 p-6">
+              <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-3">
+                {stat.label}
+              </p>
+              {loadingGuests ? (
+                <div className="h-10 w-16 bg-stone-100 rounded animate-pulse" />
+              ) : (
+                <p className={`text-4xl font-bold tabular-nums ${stat.valueClass}`}>{stat.value}</p>
+              )}
+              <p className="mt-2 text-xs text-stone-400">{stat.description}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick action card */}
+        <div className="bg-white rounded-xl border border-stone-200 p-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-stone-900 mb-1">Gerenciar convidados</h2>
+            <p className="text-sm text-stone-500">
+              Adicione convidados, edite informações e acompanhe os convites enviados.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/guests"
+            className="flex-shrink-0 ml-6 px-4 py-2 bg-stone-900 text-white text-sm font-medium rounded-lg hover:bg-stone-700 transition-colors"
+          >
+            Ver convidados
+          </Link>
         </div>
       </main>
     </div>
