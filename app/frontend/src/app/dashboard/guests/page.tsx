@@ -2,6 +2,16 @@
 
 import { createGuest, deleteGuest, listGuests, updateGuest } from "@/lib/api/guests";
 import type { GuestCreate, GuestRead, GuestUpdate } from "@/lib/api/guests";
+import {
+  getInviteStatusMeta,
+  getResponseStatusMeta,
+  inviteStatusOptions,
+  normalizeInviteStatus,
+  normalizeResponseStatus,
+  responseStatusOptions,
+  type InviteStatus,
+  type ResponseStatus,
+} from "@/lib/guest-status";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,45 +19,23 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 function InviteStatusBadge({ status }: { status: string }) {
-  if (status === "enviado") {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        Enviado
-      </span>
-    );
-  }
+  const meta = getInviteStatusMeta(status);
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-      Pendente
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}
+    >
+      {meta.label}
     </span>
   );
 }
 
 function ResponseStatusBadge({ status }: { status: string }) {
-  if (status === "confirmado") {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        Confirmado
-      </span>
-    );
-  }
-  if (status === "ausente") {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-        Ausente
-      </span>
-    );
-  }
-  if (status === "incerto") {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-        Incerto
-      </span>
-    );
-  }
+  const meta = getResponseStatusMeta(status);
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-      Pendente
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}
+    >
+      {meta.label}
     </span>
   );
 }
@@ -103,8 +91,8 @@ type GuestFormValues = {
   ideal_tone: string;
   memory: string;
   shared_element: string;
-  invite_status: string;
-  response_status: string;
+  invite_status: InviteStatus;
+  response_status: ResponseStatus;
   notes: string;
 };
 
@@ -146,8 +134,8 @@ function GuestFormModal({
       ideal_tone: guest?.ideal_tone ?? "",
       memory: guest?.memory ?? "",
       shared_element: guest?.shared_element ?? "",
-      invite_status: guest?.invite_status ?? "pending",
-      response_status: guest?.response_status ?? "pending",
+      invite_status: normalizeInviteStatus(guest?.invite_status),
+      response_status: normalizeResponseStatus(guest?.response_status),
       notes: guest?.notes ?? "",
     },
   });
@@ -172,8 +160,8 @@ function GuestFormModal({
           ideal_tone: nullIfEmpty(values.ideal_tone),
           memory: nullIfEmpty(values.memory),
           shared_element: nullIfEmpty(values.shared_element),
-          invite_status: values.invite_status || null,
-          response_status: values.response_status || null,
+          invite_status: values.invite_status,
+          response_status: values.response_status,
           notes: nullIfEmpty(values.notes),
         };
         const saved = await updateGuest(guest.id, body);
@@ -422,8 +410,11 @@ function GuestFormModal({
                   Status do convite
                 </label>
                 <select id="invite_status" {...register("invite_status")} className={inputClass}>
-                  <option value="pending">Pendente</option>
-                  <option value="enviado">Enviado</option>
+                  {inviteStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -435,10 +426,11 @@ function GuestFormModal({
                   {...register("response_status")}
                   className={inputClass}
                 >
-                  <option value="pending">Pendente</option>
-                  <option value="confirmado">Confirmado</option>
-                  <option value="ausente">Ausente</option>
-                  <option value="incerto">Incerto</option>
+                  {responseStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="sm:col-span-2">

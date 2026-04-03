@@ -2,6 +2,7 @@
 
 import { listGuests } from "@/lib/api/guests";
 import type { GuestRead } from "@/lib/api/guests";
+import { normalizeResponseStatus } from "@/lib/guest-status";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [guests, setGuests] = useState<GuestRead[]>([]);
   const [loadingGuests, setLoadingGuests] = useState(true);
+  const [guestLoadError, setGuestLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -21,9 +23,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      setLoadingGuests(true);
+      setGuestLoadError(null);
       listGuests()
         .then(setGuests)
-        .catch(() => {})
+        .catch((err) => {
+          setGuestLoadError(
+            err instanceof Error ? err.message : "Erro ao carregar estatísticas dos convidados"
+          );
+        })
         .finally(() => setLoadingGuests(false));
     }
   }, [isAuthenticated]);
@@ -52,19 +60,19 @@ export default function DashboardPage() {
     },
     {
       label: "Confirmados",
-      value: guests.filter((g) => g.response_status === "confirmado").length,
+      value: guests.filter((g) => normalizeResponseStatus(g.response_status) === "confirmed").length,
       description: "confirmaram presença",
       valueClass: "text-emerald-700",
     },
     {
       label: "Aguardando resposta",
-      value: guests.filter((g) => g.response_status === "pending").length,
+      value: guests.filter((g) => normalizeResponseStatus(g.response_status) === "pending").length,
       description: "sem resposta",
       valueClass: "text-amber-700",
     },
     {
       label: "Ausentes",
-      value: guests.filter((g) => g.response_status === "ausente").length,
+      value: guests.filter((g) => normalizeResponseStatus(g.response_status) === "absent").length,
       description: "não poderão comparecer",
       valueClass: "text-red-700",
     },
@@ -109,6 +117,15 @@ export default function DashboardPage() {
           <p className="mt-1 text-stone-500 text-sm">Aqui está um resumo do seu casamento.</p>
         </div>
 
+        {guestLoadError && (
+          <div
+            role="alert"
+            className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            Não foi possível carregar as estatísticas agora. {guestLoadError}
+          </div>
+        )}
+
         {/* Stats grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {stats.map((stat) => (
@@ -118,6 +135,8 @@ export default function DashboardPage() {
               </p>
               {loadingGuests ? (
                 <div className="h-10 w-16 bg-stone-100 rounded animate-pulse" />
+              ) : guestLoadError ? (
+                <p className="text-4xl font-bold tabular-nums text-stone-300">N/D</p>
               ) : (
                 <p className={`text-4xl font-bold tabular-nums ${stat.valueClass}`}>{stat.value}</p>
               )}
