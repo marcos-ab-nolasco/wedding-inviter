@@ -13,17 +13,37 @@ import {
   type ResponseStatus,
 } from "@/lib/guest-status";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button
+      onClick={toggle}
+      aria-label="Alternar tema"
+      className="p-1.5 rounded-md text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
+    >
+      {theme === "dark" ? (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        </svg>
+      )}
+    </button>
+  );
+}
+
 function InviteStatusBadge({ status }: { status: string }) {
   const meta = getInviteStatusMeta(status);
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}
-    >
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}>
       {meta.label}
     </span>
   );
@@ -32,9 +52,7 @@ function InviteStatusBadge({ status }: { status: string }) {
 function ResponseStatusBadge({ status }: { status: string }) {
   const meta = getResponseStatusMeta(status);
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}
-    >
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}>
       {meta.label}
     </span>
   );
@@ -51,23 +69,24 @@ function DeleteDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirmar exclusão</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          Tem certeza que deseja excluir <span className="font-medium">{guestName}</span>? Esta ação
-          não pode ser desfeita.
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 border border-stone-200 dark:border-stone-700">
+        <h3 className="text-base font-semibold text-stone-900 dark:text-stone-100 mb-2">
+          Confirmar exclusão
+        </h3>
+        <p className="text-sm text-stone-500 dark:text-stone-400 mb-6">
+          Tem certeza que deseja excluir <span className="font-medium text-stone-700 dark:text-stone-300">{guestName}</span>? Esta ação não pode ser desfeita.
         </p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+            className="px-4 py-2 text-sm text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 transition"
+            className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
           >
             Excluir
           </button>
@@ -97,10 +116,10 @@ type GuestFormValues = {
 };
 
 const inputClass =
-  "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 text-sm";
-const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  "w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-500 dark:focus:ring-stone-400 text-sm";
+const labelClass = "block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1";
 const sectionHeadingClass =
-  "text-base font-semibold text-gray-900 mb-3 pb-1 border-b border-gray-200";
+  "text-sm font-semibold text-stone-900 dark:text-stone-100 mb-3 pb-1 border-b border-stone-200 dark:border-stone-700";
 
 function InviteMessageModal({
   guest,
@@ -129,15 +148,15 @@ function InviteMessageModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-stone-200 dark:border-stone-700">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-stone-200 dark:border-stone-700">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
             Mensagens para {guest.name}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition text-xl leading-none"
+            className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xl leading-none"
             aria-label="Fechar"
           >
             ×
@@ -146,20 +165,20 @@ function InviteMessageModal({
 
         <div className="overflow-y-auto flex-1 px-6 py-4">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-stone-400 dark:text-stone-500">
               <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
               <p className="text-sm">Gerando mensagens personalizadas...</p>
             </div>
           )}
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+            <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-400">
               {error}
             </div>
           )}
 
           {!loading && !error && variations.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-8">
+            <p className="text-sm text-stone-400 dark:text-stone-500 text-center py-8">
               Nenhuma variação foi gerada. Tente novamente.
             </p>
           )}
@@ -167,27 +186,27 @@ function InviteMessageModal({
           {variations.map((v, i) => (
             <div key={i} className="mb-6 last:mb-0">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded">
                   {v.tone}
                 </span>
                 <button
                   onClick={() => handleCopy(v.message, i)}
-                  className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-2 py-0.5 transition"
+                  className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 border border-stone-200 dark:border-stone-700 rounded px-2 py-0.5 transition-colors"
                 >
                   {copied === i ? "Copiado!" : "Copiar"}
                 </button>
               </div>
-              <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-md p-4 border border-gray-100 leading-relaxed">
+              <p className="text-sm text-stone-800 dark:text-stone-200 whitespace-pre-wrap bg-stone-50 dark:bg-stone-800 rounded-lg p-4 border border-stone-100 dark:border-stone-700 leading-relaxed">
                 {v.message}
               </p>
             </div>
           ))}
         </div>
 
-        <div className="flex justify-end px-6 py-4 border-t border-gray-200">
+        <div className="flex justify-end px-6 py-4 border-t border-stone-200 dark:border-stone-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+            className="px-4 py-2 text-sm text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
           >
             Fechar
           </button>
@@ -292,15 +311,15 @@ function GuestFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-stone-200 dark:border-stone-700">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-stone-200 dark:border-stone-700">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
             {isEdit ? "Editar convidado" : "Adicionar convidado"}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition text-xl leading-none"
+            className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xl leading-none"
             aria-label="Fechar"
           >
             ×
@@ -312,12 +331,11 @@ function GuestFormModal({
           className="overflow-y-auto flex-1 px-6 py-4 space-y-6"
         >
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+            <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-400">
               {formError}
             </div>
           )}
 
-          {/* Section 1: Dados pessoais */}
           <div>
             <h3 className={sectionHeadingClass}>Dados pessoais</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -332,12 +350,12 @@ function GuestFormModal({
                   className={inputClass}
                   placeholder="Nome completo"
                 />
-                {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
+                {errors.name && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
+                )}
               </div>
               <div>
-                <label htmlFor="nickname" className={labelClass}>
-                  Apelido
-                </label>
+                <label htmlFor="nickname" className={labelClass}>Apelido</label>
                 <input
                   id="nickname"
                   type="text"
@@ -347,9 +365,7 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="relationship_type" className={labelClass}>
-                  Tipo de relacionamento
-                </label>
+                <label htmlFor="relationship_type" className={labelClass}>Tipo de relacionamento</label>
                 <input
                   id="relationship_type"
                   type="text"
@@ -359,9 +375,7 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="city" className={labelClass}>
-                  Cidade
-                </label>
+                <label htmlFor="city" className={labelClass}>Cidade</label>
                 <input
                   id="city"
                   type="text"
@@ -371,9 +385,7 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="state" className={labelClass}>
-                  Estado
-                </label>
+                <label htmlFor="state" className={labelClass}>Estado</label>
                 <input
                   id="state"
                   type="text"
@@ -387,23 +399,20 @@ function GuestFormModal({
                   id="is_distant"
                   type="checkbox"
                   {...register("is_distant")}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 text-stone-900 focus:ring-stone-500"
                 />
-                <label htmlFor="is_distant" className="text-sm text-gray-700">
+                <label htmlFor="is_distant" className="text-sm text-stone-600 dark:text-stone-400">
                   Convidado distante (mora longe ou contato raro)
                 </label>
               </div>
             </div>
           </div>
 
-          {/* Section 2: Contexto para IA */}
           <div>
             <h3 className={sectionHeadingClass}>Contexto para IA</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="friendship_level" className={labelClass}>
-                  Nível de amizade
-                </label>
+                <label htmlFor="friendship_level" className={labelClass}>Nível de amizade</label>
                 <input
                   id="friendship_level"
                   type="text"
@@ -413,9 +422,7 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="intimacy" className={labelClass}>
-                  Intimidade
-                </label>
+                <label htmlFor="intimacy" className={labelClass}>Intimidade</label>
                 <select id="intimacy" {...register("intimacy")} className={inputClass}>
                   <option value="">Selecione...</option>
                   <option value="muito próximo">Muito próximo</option>
@@ -425,14 +432,8 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="contact_frequency" className={labelClass}>
-                  Frequência de contato
-                </label>
-                <select
-                  id="contact_frequency"
-                  {...register("contact_frequency")}
-                  className={inputClass}
-                >
+                <label htmlFor="contact_frequency" className={labelClass}>Frequência de contato</label>
+                <select id="contact_frequency" {...register("contact_frequency")} className={inputClass}>
                   <option value="">Selecione...</option>
                   <option value="diário">Diário</option>
                   <option value="semanal">Semanal</option>
@@ -441,14 +442,8 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="last_contact_medium" className={labelClass}>
-                  Último meio de contato
-                </label>
-                <select
-                  id="last_contact_medium"
-                  {...register("last_contact_medium")}
-                  className={inputClass}
-                >
+                <label htmlFor="last_contact_medium" className={labelClass}>Último meio de contato</label>
+                <select id="last_contact_medium" {...register("last_contact_medium")} className={inputClass}>
                   <option value="">Selecione...</option>
                   <option value="WhatsApp">WhatsApp</option>
                   <option value="telefone">Telefone</option>
@@ -458,9 +453,7 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="ideal_tone" className={labelClass}>
-                  Tom ideal
-                </label>
+                <label htmlFor="ideal_tone" className={labelClass}>Tom ideal</label>
                 <select id="ideal_tone" {...register("ideal_tone")} className={inputClass}>
                   <option value="">Selecione...</option>
                   <option value="formal">Formal</option>
@@ -470,9 +463,7 @@ function GuestFormModal({
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="memory" className={labelClass}>
-                  Memória / história
-                </label>
+                <label htmlFor="memory" className={labelClass}>Memória / história</label>
                 <textarea
                   id="memory"
                   {...register("memory")}
@@ -482,9 +473,7 @@ function GuestFormModal({
                 />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="shared_element" className={labelClass}>
-                  Elemento compartilhado
-                </label>
+                <label htmlFor="shared_element" className={labelClass}>Elemento compartilhado</label>
                 <textarea
                   id="shared_element"
                   {...register("shared_element")}
@@ -496,14 +485,11 @@ function GuestFormModal({
             </div>
           </div>
 
-          {/* Section 3: Status e observações */}
           <div>
             <h3 className={sectionHeadingClass}>Status e observações</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="invite_status" className={labelClass}>
-                  Status do convite
-                </label>
+                <label htmlFor="invite_status" className={labelClass}>Status do convite</label>
                 <select id="invite_status" {...register("invite_status")} className={inputClass}>
                   {inviteStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -513,14 +499,8 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="response_status" className={labelClass}>
-                  Status da resposta
-                </label>
-                <select
-                  id="response_status"
-                  {...register("response_status")}
-                  className={inputClass}
-                >
+                <label htmlFor="response_status" className={labelClass}>Status da resposta</label>
+                <select id="response_status" {...register("response_status")} className={inputClass}>
                   {responseStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -529,9 +509,7 @@ function GuestFormModal({
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="notes" className={labelClass}>
-                  Observações
-                </label>
+                <label htmlFor="notes" className={labelClass}>Observações</label>
                 <textarea
                   id="notes"
                   {...register("notes")}
@@ -544,11 +522,11 @@ function GuestFormModal({
           </div>
         </form>
 
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-stone-200 dark:border-stone-700">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+            className="px-4 py-2 text-sm text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
           >
             Cancelar
           </button>
@@ -556,7 +534,7 @@ function GuestFormModal({
             type="button"
             disabled={submitting}
             onClick={handleSubmit(onSubmit)}
-            className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition"
+            className="px-4 py-2 text-sm text-white bg-stone-900 dark:bg-stone-100 dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 disabled:opacity-50 transition-colors"
           >
             {submitting ? "Salvando..." : isEdit ? "Salvar alterações" : "Adicionar"}
           </button>
@@ -643,109 +621,120 @@ export default function GuestsPage() {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Carregando...</div>
+      <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex items-center justify-center">
+        <div className="text-stone-400 dark:text-stone-500 text-sm">Carregando...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+      <nav className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800">
+        <div className="max-w-5xl mx-auto px-6">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-6">
-              <Link href="/dashboard" className="text-xl font-semibold text-gray-900">
+            <div className="flex items-center gap-8">
+              <Link href="/dashboard" className="text-base font-semibold text-stone-900 dark:text-stone-100 tracking-tight">
                 Wedding Inviter
               </Link>
               <Link
+                href="/dashboard"
+                className="text-sm font-medium text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
+              >
+                Painel
+              </Link>
+              <Link
                 href="/dashboard/guests"
-                className="text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 pb-0.5"
+                className="text-sm font-medium text-stone-900 dark:text-stone-100 border-b-2 border-stone-900 dark:border-stone-100 pb-0.5"
               >
                 Convidados
               </Link>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm"
-            >
-              Sair
-            </button>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <button
+                onClick={handleLogout}
+                className="text-sm font-medium text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
+              >
+                Sair
+              </button>
+            </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Convidados</h1>
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+            Convidados
+          </h1>
           <button
             onClick={openAddModal}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm font-medium"
+            className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 transition-colors text-sm font-medium"
           >
             Adicionar convidado
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-xl text-sm text-red-700 dark:text-red-400">
             {error}
           </div>
         )}
 
         {loadingGuests ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-8 text-center text-stone-400 dark:text-stone-500 text-sm">
             Carregando convidados...
           </div>
         ) : guests.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <p className="text-gray-500 mb-4">Nenhum convidado cadastrado ainda.</p>
+          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-12 text-center">
+            <p className="text-stone-400 dark:text-stone-500 text-sm mb-4">Nenhum convidado cadastrado ainda.</p>
             <button
               onClick={openAddModal}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm font-medium"
+              className="inline-flex items-center px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 transition-colors text-sm font-medium"
             >
               Adicionar primeiro convidado
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 overflow-hidden">
+            <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-700">
+              <thead className="bg-stone-50 dark:bg-stone-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Nome
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Cidade/Estado
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Intimidade
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Convite
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Resposta
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-stone-900 divide-y divide-stone-200 dark:divide-stone-700">
                 {guests.map((guest) => (
-                  <tr key={guest.id} className="hover:bg-gray-50">
+                  <tr key={guest.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{guest.name}</div>
+                      <div className="text-sm font-medium text-stone-900 dark:text-stone-100">{guest.name}</div>
                       {guest.nickname && (
-                        <div className="text-xs text-gray-500">{guest.nickname}</div>
+                        <div className="text-xs text-stone-400 dark:text-stone-500">{guest.nickname}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500 dark:text-stone-400">
                       {guest.city && guest.state
                         ? `${guest.city}/${guest.state}`
                         : guest.city || guest.state || "—"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500 dark:text-stone-400">
                       {guest.intimacy || "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -758,19 +747,19 @@ export default function GuestsPage() {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setInviteGuest(guest)}
-                          className="px-3 py-1 text-xs text-amber-600 border border-amber-300 rounded hover:bg-amber-50 transition"
+                          className="px-3 py-1 text-xs text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
                         >
                           Gerar
                         </button>
                         <button
                           onClick={() => openEditModal(guest)}
-                          className="px-3 py-1 text-xs text-indigo-600 border border-indigo-300 rounded hover:bg-indigo-50 transition"
+                          className="px-3 py-1 text-xs text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-600 rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
                         >
                           Editar
                         </button>
                         <button
                           onClick={() => setDeleteTarget(guest)}
-                          className="px-3 py-1 text-xs text-red-600 border border-red-300 rounded hover:bg-red-50 transition"
+                          className="px-3 py-1 text-xs text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                         >
                           Excluir
                         </button>
