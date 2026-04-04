@@ -4,6 +4,8 @@ import type { components } from "@/types/api";
 export type GuestRead = components["schemas"]["GuestRead"];
 export type GuestCreate = components["schemas"]["GuestCreate"];
 export type GuestUpdate = components["schemas"]["GuestUpdate"];
+export type InviteMessageVariation = components["schemas"]["InviteMessageVariation"];
+export type InviteMessageResponse = components["schemas"]["InviteMessageResponse"];
 
 function extractErrorMessage(error: unknown, fallbackMessage: string): string {
   if (typeof error === "string") return error;
@@ -40,4 +42,13 @@ export async function deleteGuest(guestId: string): Promise<void> {
     params: { path: { guest_id: guestId } },
   });
   if (error) throw new Error(extractErrorMessage(error, "Failed to delete guest"));
+}
+
+export async function generateInviteMessage(guestId: string): Promise<InviteMessageResponse> {
+  const { data, error } = await authenticatedClient.POST(
+    "/guests/{guest_id}/invite-message",
+    { params: { path: { guest_id: guestId } } }
+  );
+  if (error) throw new Error(extractErrorMessage(error, "Failed to generate invite message"));
+  return data;
 }

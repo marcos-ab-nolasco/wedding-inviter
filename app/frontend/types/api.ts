@@ -168,6 +168,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/guests/{guest_id}/invite-message": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generate Invite Message
+     * @description Generate personalized WhatsApp invite message variations for a guest using AI.
+     */
+    post: operations["generate_invite_message_guests__guest_id__invite_message_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/guests/{guest_id}": {
     parameters: {
       query?: never;
@@ -322,6 +342,23 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** InviteMessageVariation */
+    InviteMessageVariation: {
+      /** Tone */
+      tone: string;
+      /** Message */
+      message: string;
+    };
+    /** InviteMessageResponse */
+    InviteMessageResponse: {
+      /**
+       * Guest Id
+       * Format: uuid
+       */
+      guest_id: string;
+      /** Variations */
+      variations: components["schemas"]["InviteMessageVariation"][];
     };
     /** GuestUpdate */
     GuestUpdate: {
@@ -744,6 +781,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["GuestRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  generate_invite_message_guests__guest_id__invite_message_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        guest_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InviteMessageResponse"];
         };
       };
       /** @description Validation Error */

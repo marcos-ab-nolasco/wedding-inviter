@@ -1,7 +1,7 @@
 "use client";
 
-import { createGuest, deleteGuest, listGuests, updateGuest } from "@/lib/api/guests";
-import type { GuestCreate, GuestRead, GuestUpdate } from "@/lib/api/guests";
+import { createGuest, deleteGuest, generateInviteMessage, listGuests, updateGuest } from "@/lib/api/guests";
+import type { GuestCreate, GuestRead, GuestUpdate, InviteMessageVariation } from "@/lib/api/guests";
 import {
   getInviteStatusMeta,
   getResponseStatusMeta,
@@ -101,6 +101,101 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 const sectionHeadingClass =
   "text-base font-semibold text-gray-900 mb-3 pb-1 border-b border-gray-200";
+
+function InviteMessageModal({
+  guest,
+  onClose,
+}: {
+  guest: GuestRead;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [variations, setVariations] = useState<InviteMessageVariation[]>([]);
+  const [copied, setCopied] = useState<number | null>(null);
+
+  useEffect(() => {
+    generateInviteMessage(guest.id)
+      .then((res) => setVariations(res.variations))
+      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao gerar mensagem"))
+      .finally(() => setLoading(false));
+  }, [guest.id]);
+
+  const handleCopy = async (text: string, index: number) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(index);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Mensagens para {guest.name}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition text-xl leading-none"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-500">
+              <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm">Gerando mensagens personalizadas...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && variations.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-8">
+              Nenhuma variação foi gerada. Tente novamente.
+            </p>
+          )}
+
+          {variations.map((v, i) => (
+            <div key={i} className="mb-6 last:mb-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
+                  {v.tone}
+                </span>
+                <button
+                  onClick={() => handleCopy(v.message, i)}
+                  className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-2 py-0.5 transition"
+                >
+                  {copied === i ? "Copiado!" : "Copiar"}
+                </button>
+              </div>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-md p-4 border border-gray-100 leading-relaxed">
+                {v.message}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end px-6 py-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GuestFormModal({
   guest,
@@ -481,6 +576,7 @@ export default function GuestsPage() {
   const [deleting, setDeleting] = useState(false);
   const [modalGuest, setModalGuest] = useState<GuestRead | undefined>(undefined);
   const [modalOpen, setModalOpen] = useState(false);
+  const [inviteGuest, setInviteGuest] = useState<GuestRead | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -661,6 +757,12 @@ export default function GuestsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
                         <button
+                          onClick={() => setInviteGuest(guest)}
+                          className="px-3 py-1 text-xs text-amber-600 border border-amber-300 rounded hover:bg-amber-50 transition"
+                        >
+                          Gerar
+                        </button>
+                        <button
                           onClick={() => openEditModal(guest)}
                           className="px-3 py-1 text-xs text-indigo-600 border border-indigo-300 rounded hover:bg-indigo-50 transition"
                         >
@@ -695,6 +797,13 @@ export default function GuestsPage() {
           guest={modalGuest}
           onClose={() => setModalOpen(false)}
           onSuccess={handleModalSuccess}
+        />
+      )}
+
+      {inviteGuest && (
+        <InviteMessageModal
+          guest={inviteGuest}
+          onClose={() => setInviteGuest(null)}
         />
       )}
     </div>

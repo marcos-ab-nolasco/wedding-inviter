@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     OPENAI_API_KEY: SecretStr
+    OPENAI_MODEL: str = "gpt-4o"
 
     # Frontend
     FRONTEND_BASE_URL: str = "http://localhost:3000"

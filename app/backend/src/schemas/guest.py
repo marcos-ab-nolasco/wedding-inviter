@@ -75,3 +75,13 @@ class GuestUpdate(BaseModel):
 
 class GuestList(BaseModel):
     guests: list[GuestRead]
+
+
+class InviteMessageVariation(BaseModel):
+    tone: str
+    message: str
+
+
+class InviteMessageResponse(BaseModel):
+    guest_id: UUID
+    variations: list[InviteMessageVariation]
