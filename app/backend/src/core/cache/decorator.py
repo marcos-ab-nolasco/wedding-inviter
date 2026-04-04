@@ -44,7 +44,7 @@ def _sorted_by_keys(dict_: dict[Any, Any]) -> dict[Any, Any]:
 def _sort_dicts(
     obj: Any,
 ) -> None:
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         for item in obj:
             _sort_dicts(item)
 
@@ -157,7 +157,7 @@ class RedisCache:
                 if raw_value is None:
                     return None
 
-                if not isinstance(raw_value, (bytes, bytearray)):
+                if not isinstance(raw_value, bytes | bytearray):
                     return None
 
                 try:
@@ -220,7 +220,7 @@ class RedisCache:
                     return None
 
                 timestamp = cached_response.get("timestamp")
-                if isinstance(timestamp, (int, float)):
+                if isinstance(timestamp, int | float):
                     return timestamp
 
                 if ignore_validation_error:
@@ -342,7 +342,7 @@ class RedisCache:
                     serialized = serializer(cache_payload)
                     if isinstance(serialized, bytearray):
                         serialized = bytes(serialized)
-                    if not isinstance(serialized, (bytes, bytearray)):
+                    if not isinstance(serialized, bytes | bytearray):
                         raise TypeError("Serializer must return bytes-like object.")
 
                     await self.client.set(cache_key, serialized, **ttl_kwargs)

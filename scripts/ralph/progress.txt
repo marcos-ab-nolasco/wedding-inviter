@@ -1,0 +1,113 @@
+## Codebase Patterns
+- API routers for authenticated endpoints use `limiter_authenticated` (user-based rate limiting) not `limiter` (IP-based); import from `src.core.rate_limit`
+- Guest endpoints return `GuestRead.model_validate(guest)` — always validate ORM objects through Pydantic before returning
+- Frontend types/api.ts is auto-generated; when backend is unavailable, hand-edit it by adding paths, components.schemas, and operations entries following the existing pattern
+- Frontend API functions live in `lib/api/guests.ts`; use `authenticatedClient` (not `apiClient`) for all protected endpoints
+- Dashboard pages are client components ("use client"), use `useAuth()` hook for auth check + redirect pattern
+- Modal forms use react-hook-form with `register` + `handleSubmit`; place submit trigger on footer button via `onClick={handleSubmit(onSubmit)}` with `type="button"` (avoids double-fire from native form submit)
+- GuestCreate.invite_status/response_status are `string` (not nullable) — use `|| undefined` not `|| null` for optional selects; GuestUpdate versions are `string | null`
+
+- Models live in `app/backend/src/db/models/` — UUID PKs use `server_default=func.gen_random_uuid()`, timestamps use `DateTime(timezone=True)` with `server_default=func.now()`
+- All models use SQLAlchemy `Mapped` + `mapped_column` typed annotations (not classic Column style)
+- The `.venv` in `app/backend/` was created with uv and pointed to Python 3.13 (now unavailable); migrations must be written manually or the venv must be recreated
+- `alembic/env.py` must import every model explicitly (e.g. `from src.db.models import Guest, User, Wedding  # noqa: F401`) for autogenerate to see the table
+- For back_populates between models, use `TYPE_CHECKING` guard in wedding.py to avoid circular imports; in guest.py use string `"Wedding"` for the relationship target
+- Migration file naming: `YYYYmmdd_HHMM_<12-hex-rev>_<slug>.py`; down_revision must chain to the previous revision ID
+
+- Schemas follow BaseModel pattern; only GuestRead needs `model_config = ConfigDict(from_attributes=True)`
+- GuestList wraps `list[GuestRead]` — use this pattern for all list responses
+- Service functions are async and accept `AsyncSession`; use `select(func.count()).select_from(Model)` for count queries
+- Guest service raises `HTTPException(400)` directly when limit is exceeded (no custom domain exception needed)
+
+---
+
+# Progress Log
+
+## 2026-03-29 22:10 - US-001
+- Created `app/backend/src/db/models/guest.py` with all required fields (UUID PK, FK to weddings, all AI context fields as free-text strings, status fields, timestamps)
+- Updated `app/backend/src/db/models/wedding.py` to add `guests` relationship with `back_populates`, using `TYPE_CHECKING` to avoid circular imports
+- Updated `app/backend/src/db/models/__init__.py` to export `Guest`
+- Updated `app/backend/alembic/env.py` to import `Guest` for autogenerate support
+- Created manual migration `app/backend/alembic/versions/20260329_2210_a973fbe23ccb_add_guests_table.py` (written manually because the .venv Python 3.13 interpreter is missing in this environment)
+- **Learnings for future iterations:**
+  - The `.venv` was created with uv on Python 3.13 which is not available in this devcontainer; alembic autogenerate cannot run directly — migration was written manually
+  - Use `from __future__ import annotations` + `TYPE_CHECKING` in wedding.py for clean circular import handling
+  - `is_distant` Boolean column must have `server_default` set in migration or use Python-side `default=False` (used Python-side default in model, migration omits server_default for boolean)
+---
+
+## 2026-03-29 - US-002
+- Created `app/backend/src/schemas/guest.py` with GuestCreate, GuestRead, GuestUpdate, GuestList schemas
+- Updated `app/backend/src/schemas/__init__.py` to export all four guest schemas
+- **Learnings for future iterations:**
+  - Only the Read schema needs `model_config = ConfigDict(from_attributes=True)`; Create/Update/List do not need it
+  - GuestList wraps `list[GuestRead]` as `guests` field — consistent with PRD requirements
+---
+
+## 2026-03-29 - US-003
+- Added `MAX_GUESTS_PER_WEDDING: int = 500` setting to `app/backend/src/core/config.py`
+- Created `app/backend/src/services/guest_service.py` with: `create_guest`, `list_guests`, `get_guest`, `update_guest`, `delete_guest`
+- All queries filter by `wedding_id` for data isolation
+- `create_guest` raises `HTTPException(400)` if wedding already has `MAX_GUESTS_PER_WEDDING` guests
+- **Learnings for future iterations:**
+  - `model_dump(exclude_unset=True)` is the right pattern for partial updates (GuestUpdate) to avoid overwriting fields with None
+  - `select(func.count()).select_from(Guest).where(...)` is the async SQLAlchemy pattern for count queries
+  - Service layer does not import schemas' `__init__`; import directly from `src.schemas.guest`
+---
+
+## 2026-03-29 - US-004
+- Created `app/backend/src/api/guests.py` with `APIRouter(prefix="/guests", tags=["guests"])`
+- Endpoints: POST /guests (201), GET /guests, PATCH /guests/{guest_id}, DELETE /guests/{guest_id} (204)
+- All endpoints use `Depends(get_current_user)` and `limiter_authenticated.limit("60/minute")`
+- Endpoints guard against `current_user.wedding_id is None` (400) and missing guest (404)
+- Included `guests.router` in `app/backend/src/main.py`
+- **Learnings for future iterations:**
+  - `limiter_authenticated` is the correct limiter for authenticated routes (per-user rate limiting); `limiter` is IP-based (for auth/public endpoints)
+  - `from src.services import guest_service` works as module import since services package has `__init__.py`
+  - DELETE endpoint returns `None` (204 No Content) — FastAPI handles no body automatically
+---
+
+## 2026-03-29 - US-005
+- Created `app/backend/tests/test_guests.py` with 6 tests covering guest CRUD happy paths and authorization boundary
+- Tests: create guest returns 201, list guests scoped to own wedding, update with partial body, delete returns 204, cross-wedding access returns 404, guest limit returns 400
+- Used `patch("src.services.guest_service.get_settings")` to override MAX_GUESTS_PER_WEDDING=0 for limit test
+- **Learnings for future iterations:**
+  - Test fixtures for wedding-linked users require: Wedding → User (with wedding_id FK) → auth_headers (separate fixture)
+  - `guest_in_other_wedding` fixture tests isolation without coupling to current user's wedding
+  - `patch("src.services.guest_service.get_settings")` mocks settings at call site, not at definition site — mock the module where it's used
+  - The `db_session` fixture auto-truncates tables between tests (TRUNCATE CASCADE), so fixture data is clean per test
+---
+
+## 2026-03-29 - US-006
+- Manually updated `app/frontend/types/api.ts` with GuestCreate, GuestRead, GuestUpdate, GuestList schemas and /guests + /guests/{guest_id} endpoint paths/operations
+- Created `app/frontend/lib/api/guests.ts` with listGuests, createGuest, updateGuest, deleteGuest functions using authenticatedClient
+- Created `app/frontend/src/app/dashboard/guests/page.tsx` with:
+  - Table with columns: Nome, Cidade/Estado, Intimidade, Convite (invite status), Resposta (response status)
+  - Colored badge components: InviteStatusBadge (yellow/green), ResponseStatusBadge (yellow/green/red/orange)
+  - Per-row edit link and delete button with confirmation dialog (DeleteDialog)
+  - Empty state with call-to-action link
+  - Auth guard + redirect via useAuth pattern
+- Updated `app/frontend/src/app/dashboard/page.tsx` to add Convidados nav link
+- **Learnings for future iterations:**
+  - `types/api.ts` is auto-generated; when backend unavailable, manually add: (1) path entry in `paths`, (2) schemas in `components.schemas`, (3) operation in `operations` — all three needed for openapi-fetch type safety
+  - `authenticatedClient.DELETE` with 204 response: `error` field is enough to check; no `data` is returned for 204
+  - Dashboard nav pattern: wrap brand + nav links in a flex div, keep logout on the right
+  - Status badge values from backend are lowercase English ('pending', 'enviado', etc.) — map to Portuguese labels in UI
+---
+
+## 2026-03-29 - US-007
+- Updated `app/frontend/src/app/dashboard/guests/page.tsx`:
+  - Replaced "Adicionar convidado" Link with button opening GuestFormModal
+  - Replaced row "Editar" Link with button opening GuestFormModal pre-filled with guest data
+  - Added `GuestFormModal` component with 3 sections: Dados pessoais, Contexto para IA, Status e observações
+  - Selects for: intimacy, contact_frequency, last_contact_medium, ideal_tone, invite_status, response_status
+  - Text inputs for: name, nickname, relationship_type, city, state
+  - Textarea inputs for: memory, shared_element, notes
+  - Checkbox for: is_distant
+  - Client-side validation via react-hook-form: name is required
+  - Create mode: POST /guests; edit mode: PATCH /guests/{id}; list refreshes optimistically on success
+- **Learnings for future iterations:**
+  - Modal footer submit button must use `type="button"` + `onClick={handleSubmit(onSubmit)}` to avoid double-trigger with form's onSubmit
+  - GuestCreate.invite_status/response_status are `string` (not nullable); use `|| undefined` for optional selects; GuestUpdate accepts `string | null`
+  - `nullIfEmpty` helper (trim then return null) is a clean pattern for optional text fields
+  - Modal scroll: use flex-col with `overflow-y-auto flex-1` on the form body and fixed header/footer
+---

@@ -17,7 +17,7 @@ if env_path.exists():
 
 # Import Base and all models
 from src.db.session import Base
-from src.db.models import User, Wedding  # noqa: F401
+from src.db.models import Guest, User, Wedding  # noqa: F401
 from src.core.config import get_settings
 settings = get_settings()
 

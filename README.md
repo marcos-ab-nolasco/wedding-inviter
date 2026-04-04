@@ -15,6 +15,23 @@ Aplicação fullstack (FastAPI + Next.js) para gerenciamento de lista de casamen
 - Postgres e Redis locais (para o modo manual) **ou** Docker Desktop/Podman (para Compose).
 - `make`, `docker` e `docker compose` disponíveis no PATH.
 
+Em ambientes Debian/Ubuntu, os itens acima podem ser instalados com:
+
+```bash
+# Atualiza pacotes
+apt update && apt upgrade -y
+
+# Instala uv (gerenciador de ambientes Python)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Instala Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs
+
+# Instala pnpm e o Claude Code CLI
+npm install -g pnpm @anthropic-ai/claude-code
+```
+
 ## Setup Inicial (após clonar)
 
 1. Crie o ambiente virtual do backend:

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     OPENAI_API_KEY: SecretStr
+    OPENAI_MODEL: str = "gpt-4o"
 
     # Frontend
     FRONTEND_BASE_URL: str = "http://localhost:3000"
@@ -51,6 +52,9 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "DEBUG"
+
+    # Guest limits
+    MAX_GUESTS_PER_WEDDING: int = 500
 
 
 @lru_cache
