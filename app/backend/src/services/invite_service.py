@@ -135,7 +135,9 @@ async def _call_openai(prompt: str) -> list[InviteMessageVariation]:
 
 
 @redis_cache_decorator(ttl=3600, namespace="invites.generate")
-async def generate_invite_messages(guest_id: UUID, guest: GuestRead) -> list[InviteMessageVariation]:
+async def generate_invite_messages(
+    guest_id: UUID, guest: GuestRead
+) -> list[InviteMessageVariation]:
     """Generate 3 personalized WhatsApp invite message variations for a guest.
 
     Results are cached for 1 hour keyed by guest_id + guest data, so any edit

@@ -1,4 +1,5 @@
 import { authenticatedClient } from "@/lib/api-client";
+import { useAuthStore } from "@/store/auth";
 import type { components } from "@/types/api";
 
 export type GuestRead = components["schemas"]["GuestRead"];
@@ -45,10 +46,38 @@ export async function deleteGuest(guestId: string): Promise<void> {
 }
 
 export async function generateInviteMessage(guestId: string): Promise<InviteMessageResponse> {
-  const { data, error } = await authenticatedClient.POST(
-    "/guests/{guest_id}/invite-message",
-    { params: { path: { guest_id: guestId } } }
-  );
+  const { data, error } = await authenticatedClient.POST("/guests/{guest_id}/invite-message", {
+    params: { path: { guest_id: guestId } },
+  });
   if (error) throw new Error(extractErrorMessage(error, "Failed to generate invite message"));
   return data;
+}
+
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ChatResponse = {
+  message: string;
+  is_complete: boolean;
+  invite_text: string | null;
+  fields_to_update: Record<string, string | null> | null;
+};
+
+export async function chatWithGuest(
+  guestId: string,
+  history: ChatMessage[]
+): Promise<ChatResponse> {
+  const token = useAuthStore.getState().accessToken;
+  const res = await fetch(`/api/guests/${guestId}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify({ history }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(extractErrorMessage(err, "Falha ao comunicar com o redator"));
+  }
+  return res.json() as Promise<ChatResponse>;
 }

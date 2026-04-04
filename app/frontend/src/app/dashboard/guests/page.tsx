@@ -1,7 +1,13 @@
 "use client";
 
-import { createGuest, deleteGuest, generateInviteMessage, listGuests, updateGuest } from "@/lib/api/guests";
-import type { GuestCreate, GuestRead, GuestUpdate, InviteMessageVariation } from "@/lib/api/guests";
+import { chatWithGuest, createGuest, deleteGuest, listGuests, updateGuest } from "@/lib/api/guests";
+import type {
+  ChatMessage,
+  ChatResponse,
+  GuestCreate,
+  GuestRead,
+  GuestUpdate,
+} from "@/lib/api/guests";
 import {
   getInviteStatusMeta,
   getResponseStatusMeta,
@@ -16,8 +22,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
 
 function ThemeToggle() {
   const { theme, toggle } = useTheme();
@@ -28,12 +34,33 @@ function ThemeToggle() {
       className="p-1.5 rounded-md text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
     >
       {theme === "dark" ? (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
         </svg>
       ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
       )}
     </button>
@@ -43,7 +70,9 @@ function ThemeToggle() {
 function InviteStatusBadge({ status }: { status: string }) {
   const meta = getInviteStatusMeta(status);
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}
+    >
       {meta.label}
     </span>
   );
@@ -52,7 +81,9 @@ function InviteStatusBadge({ status }: { status: string }) {
 function ResponseStatusBadge({ status }: { status: string }) {
   const meta = getResponseStatusMeta(status);
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.className}`}
+    >
       {meta.label}
     </span>
   );
@@ -75,7 +106,9 @@ function DeleteDialog({
           Confirmar exclusão
         </h3>
         <p className="text-sm text-stone-500 dark:text-stone-400 mb-6">
-          Tem certeza que deseja excluir <span className="font-medium text-stone-700 dark:text-stone-300">{guestName}</span>? Esta ação não pode ser desfeita.
+          Tem certeza que deseja excluir{" "}
+          <span className="font-medium text-stone-700 dark:text-stone-300">{guestName}</span>? Esta
+          ação não pode ser desfeita.
         </p>
         <div className="flex justify-end gap-3">
           <button
@@ -96,9 +129,482 @@ function DeleteDialog({
   );
 }
 
-type GuestFormValues = {
+// ---------------------------------------------------------------------------
+// Chat invite modal
+// ---------------------------------------------------------------------------
+
+type ChatMessageUI = { role: "user" | "assistant"; content: string };
+
+function InviteChatModal({
+  guest,
+  onClose,
+  onGuestUpdated,
+}: {
+  guest: GuestRead;
+  onClose: () => void;
+  onGuestUpdated: (updated: GuestRead) => void;
+}) {
+  const [messages, setMessages] = useState<ChatMessageUI[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [inviteText, setInviteText] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const initialized = useRef(false);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const sendTurn = useCallback(
+    async (userText: string | null, currentMessages: ChatMessageUI[]) => {
+      const historyToSend: ChatMessage[] = currentMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response: ChatResponse = await chatWithGuest(guest.id, historyToSend);
+        const assistantMsg: ChatMessageUI = { role: "assistant", content: response.message };
+        setMessages((prev) => [...prev, assistantMsg]);
+
+        if (response.is_complete) {
+          setInviteText(response.invite_text ?? null);
+          if (response.fields_to_update) {
+            const patch: GuestUpdate = response.fields_to_update as GuestUpdate;
+            updateGuest(guest.id, patch)
+              .then(onGuestUpdated)
+              .catch(() => {
+                // silent — guest update is best-effort
+              });
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao comunicar com o redator");
+      } finally {
+        setLoading(false);
+        if (userText === null) {
+          // opening turn — focus input after greeting
+          setTimeout(() => inputRef.current?.focus(), 100);
+        }
+      }
+    },
+    [guest.id, onGuestUpdated]
+  );
+
+  // Trigger opening message once
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    sendTurn(null, []);
+  }, [sendTurn]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading, inviteText, scrollToBottom]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || loading || inviteText !== null) return;
+
+    const userMsg: ChatMessageUI = { role: "user", content: text };
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+    setInput("");
+    await sendTurn(text, updatedMessages);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!inviteText) return;
+    await navigator.clipboard.writeText(inviteText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-stone-200 dark:border-stone-700">
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-stone-200 dark:border-stone-700 shrink-0">
+          <div>
+            <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
+              Redigindo convite para {guest.name}
+            </h2>
+            <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+              Redator de correspondências
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xl leading-none"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Chat area */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-br-sm"
+                    : "bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 rounded-bl-sm"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          {/* Typing indicator */}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-stone-100 dark:bg-stone-800 rounded-2xl rounded-bl-sm px-4 py-3">
+                <div className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 bg-stone-400 dark:bg-stone-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-stone-400 dark:bg-stone-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-stone-400 dark:bg-stone-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Final invite card */}
+          {inviteText && (
+            <div className="mt-2 border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800">
+                <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  Convite
+                </span>
+                <button
+                  onClick={handleCopy}
+                  className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 border border-amber-300 dark:border-amber-700 rounded px-2 py-0.5 transition-colors"
+                >
+                  {copied ? "Copiado!" : "Copiar"}
+                </button>
+              </div>
+              <p className="text-sm text-stone-800 dark:text-stone-200 whitespace-pre-wrap p-4 leading-relaxed bg-white dark:bg-stone-900">
+                {inviteText}
+              </p>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input area */}
+        <div className="shrink-0 px-6 py-4 border-t border-stone-200 dark:border-stone-700">
+          {inviteText ? (
+            <p className="text-xs text-stone-400 dark:text-stone-500 text-center">
+              Convite redigido. Feche para voltar à lista.
+            </p>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={loading}
+                placeholder="Responda ao redator..."
+                className="flex-1 px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-500 dark:focus:ring-stone-400 text-sm disabled:opacity-50"
+              />
+              <button
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="px-4 py-2 text-sm text-white bg-stone-900 dark:bg-stone-100 dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 disabled:opacity-40 transition-colors"
+              >
+                Enviar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Guest form — simplified for creation, full for editing
+// ---------------------------------------------------------------------------
+
+const inputClass =
+  "w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-500 dark:focus:ring-stone-400 text-sm";
+const labelClass = "block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1";
+const sectionHeadingClass =
+  "text-sm font-semibold text-stone-900 dark:text-stone-100 mb-3 pb-1 border-b border-stone-200 dark:border-stone-700";
+
+// Create form
+
+type CreateFormValues = {
+  name: string;
+  age_group: string;
+  relationship_type: string;
+  spouse_name: string;
+  affiliates: { name: string }[];
+};
+
+function GuestCreateModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: (saved: GuestRead) => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<CreateFormValues>({
+    defaultValues: {
+      name: "",
+      age_group: "",
+      relationship_type: "",
+      spouse_name: "",
+      affiliates: [],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control, name: "affiliates" });
+
+  const onSubmit = async (values: CreateFormValues) => {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const body: GuestCreate = {
+        name: values.name,
+        age_group: values.age_group || null,
+        relationship_type: values.relationship_type || null,
+        is_distant: false,
+        invite_status: "pending",
+        response_status: "pending",
+      };
+      const mainGuest = await createGuest(body);
+
+      const secondaryCreations: Promise<GuestRead>[] = [];
+
+      if (values.spouse_name.trim()) {
+        secondaryCreations.push(
+          createGuest({
+            name: values.spouse_name.trim(),
+            age_group: "adulto",
+            relationship_type: "cônjuge",
+            is_distant: false,
+            invite_status: "pending",
+            response_status: "pending",
+          })
+        );
+      }
+
+      for (const aff of values.affiliates) {
+        if (aff.name.trim()) {
+          secondaryCreations.push(
+            createGuest({
+              name: aff.name.trim(),
+              relationship_type: "afiliado",
+              is_distant: false,
+              invite_status: "pending",
+              response_status: "pending",
+            })
+          );
+        }
+      }
+
+      await Promise.all(secondaryCreations);
+      onSuccess(mainGuest);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Erro ao salvar convidado");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col border border-stone-200 dark:border-stone-700">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-stone-200 dark:border-stone-700">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
+            Adicionar convidado
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xl leading-none"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="overflow-y-auto flex-1 px-6 py-4 space-y-5"
+        >
+          {formError && (
+            <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-400">
+              {formError}
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="name" className={labelClass}>
+              Nome <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              {...register("name", { required: "Nome é obrigatório" })}
+              className={inputClass}
+              placeholder="Nome completo"
+            />
+            {errors.name && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="age_group" className={labelClass}>
+              Faixa etária
+            </label>
+            <select id="age_group" {...register("age_group")} className={inputClass}>
+              <option value="">Selecione...</option>
+              <option value="criança">Criança</option>
+              <option value="adulto">Adulto</option>
+              <option value="idoso">Idoso</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="relationship_type" className={labelClass}>
+              Relação com o convidante
+            </label>
+            <select
+              id="relationship_type"
+              {...register("relationship_type")}
+              className={inputClass}
+            >
+              <option value="">Selecione...</option>
+              <option value="familiar">Familiar</option>
+              <option value="amigo">Amigo</option>
+              <option value="colega">Colega</option>
+              <option value="conhecido">Conhecido</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="spouse_name" className={labelClass}>
+              Cônjuge
+            </label>
+            <input
+              id="spouse_name"
+              type="text"
+              {...register("spouse_name")}
+              className={inputClass}
+              placeholder="Nome do cônjuge (opcional)"
+            />
+            <p className="mt-1 text-xs text-stone-400 dark:text-stone-500">
+              Será adicionado como convidado separado.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className={`${labelClass} mb-0`}>Afiliados</label>
+              <button
+                type="button"
+                onClick={() => append({ name: "" })}
+                className="text-xs text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-600 rounded px-2 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+              >
+                + Adicionar
+              </button>
+            </div>
+            {fields.length === 0 && (
+              <p className="text-xs text-stone-400 dark:text-stone-500">
+                Filhos ou parentes próximos que também serão convidados.
+              </p>
+            )}
+            <div className="space-y-2">
+              {fields.map((field, index) => (
+                <div key={field.id} className="flex gap-2">
+                  <input
+                    type="text"
+                    {...register(`affiliates.${index}.name`)}
+                    className={inputClass}
+                    placeholder="Nome do afiliado"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="px-2 py-1 text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                    aria-label="Remover afiliado"
+                  >
+                    −
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </form>
+
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-stone-200 dark:border-stone-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={handleSubmit(onSubmit)}
+            className="px-4 py-2 text-sm text-white bg-stone-900 dark:bg-stone-100 dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 disabled:opacity-50 transition-colors"
+          >
+            {submitting ? "Adicionando..." : "Adicionar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Edit form (full fields)
+
+type EditFormValues = {
   name: string;
   nickname: string;
+  age_group: string;
   relationship_type: string;
   city: string;
   state: string;
@@ -115,117 +621,15 @@ type GuestFormValues = {
   notes: string;
 };
 
-const inputClass =
-  "w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-500 dark:focus:ring-stone-400 text-sm";
-const labelClass = "block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1";
-const sectionHeadingClass =
-  "text-sm font-semibold text-stone-900 dark:text-stone-100 mb-3 pb-1 border-b border-stone-200 dark:border-stone-700";
-
-function InviteMessageModal({
-  guest,
-  onClose,
-}: {
-  guest: GuestRead;
-  onClose: () => void;
-}) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [variations, setVariations] = useState<InviteMessageVariation[]>([]);
-  const [copied, setCopied] = useState<number | null>(null);
-
-  useEffect(() => {
-    generateInviteMessage(guest.id)
-      .then((res) => setVariations(res.variations))
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao gerar mensagem"))
-      .finally(() => setLoading(false));
-  }, [guest.id]);
-
-  const handleCopy = async (text: string, index: number) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(index);
-    setTimeout(() => setCopied(null), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-stone-200 dark:border-stone-700">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-stone-200 dark:border-stone-700">
-          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-            Mensagens para {guest.name}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xl leading-none"
-            aria-label="Fechar"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 px-6 py-4">
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-stone-400 dark:text-stone-500">
-              <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm">Gerando mensagens personalizadas...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
-          {!loading && !error && variations.length === 0 && (
-            <p className="text-sm text-stone-400 dark:text-stone-500 text-center py-8">
-              Nenhuma variação foi gerada. Tente novamente.
-            </p>
-          )}
-
-          {variations.map((v, i) => (
-            <div key={i} className="mb-6 last:mb-0">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded">
-                  {v.tone}
-                </span>
-                <button
-                  onClick={() => handleCopy(v.message, i)}
-                  className="text-xs text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 border border-stone-200 dark:border-stone-700 rounded px-2 py-0.5 transition-colors"
-                >
-                  {copied === i ? "Copiado!" : "Copiar"}
-                </button>
-              </div>
-              <p className="text-sm text-stone-800 dark:text-stone-200 whitespace-pre-wrap bg-stone-50 dark:bg-stone-800 rounded-lg p-4 border border-stone-100 dark:border-stone-700 leading-relaxed">
-                {v.message}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex justify-end px-6 py-4 border-t border-stone-200 dark:border-stone-700">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GuestFormModal({
+function GuestEditModal({
   guest,
   onClose,
   onSuccess,
 }: {
-  guest?: GuestRead;
+  guest: GuestRead;
   onClose: () => void;
   onSuccess: (saved: GuestRead) => void;
 }) {
-  const isEdit = !!guest;
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -233,75 +637,54 @@ function GuestFormModal({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<GuestFormValues>({
+  } = useForm<EditFormValues>({
     defaultValues: {
-      name: guest?.name ?? "",
-      nickname: guest?.nickname ?? "",
-      relationship_type: guest?.relationship_type ?? "",
-      city: guest?.city ?? "",
-      state: guest?.state ?? "",
-      is_distant: guest?.is_distant ?? false,
-      friendship_level: guest?.friendship_level ?? "",
-      intimacy: guest?.intimacy ?? "",
-      contact_frequency: guest?.contact_frequency ?? "",
-      last_contact_medium: guest?.last_contact_medium ?? "",
-      ideal_tone: guest?.ideal_tone ?? "",
-      memory: guest?.memory ?? "",
-      shared_element: guest?.shared_element ?? "",
-      invite_status: normalizeInviteStatus(guest?.invite_status),
-      response_status: normalizeResponseStatus(guest?.response_status),
-      notes: guest?.notes ?? "",
+      name: guest.name,
+      nickname: guest.nickname ?? "",
+      age_group: guest.age_group ?? "",
+      relationship_type: guest.relationship_type ?? "",
+      city: guest.city ?? "",
+      state: guest.state ?? "",
+      is_distant: guest.is_distant,
+      friendship_level: guest.friendship_level ?? "",
+      intimacy: guest.intimacy ?? "",
+      contact_frequency: guest.contact_frequency ?? "",
+      last_contact_medium: guest.last_contact_medium ?? "",
+      ideal_tone: guest.ideal_tone ?? "",
+      memory: guest.memory ?? "",
+      shared_element: guest.shared_element ?? "",
+      invite_status: normalizeInviteStatus(guest.invite_status),
+      response_status: normalizeResponseStatus(guest.response_status),
+      notes: guest.notes ?? "",
     },
   });
 
-  const onSubmit = async (values: GuestFormValues) => {
+  const onSubmit = async (values: EditFormValues) => {
     setSubmitting(true);
     setFormError(null);
     try {
       const nullIfEmpty = (v: string) => v.trim() || null;
-      if (isEdit && guest) {
-        const body: GuestUpdate = {
-          name: values.name,
-          nickname: nullIfEmpty(values.nickname),
-          relationship_type: nullIfEmpty(values.relationship_type),
-          city: nullIfEmpty(values.city),
-          state: nullIfEmpty(values.state),
-          is_distant: values.is_distant,
-          friendship_level: nullIfEmpty(values.friendship_level),
-          intimacy: nullIfEmpty(values.intimacy),
-          contact_frequency: nullIfEmpty(values.contact_frequency),
-          last_contact_medium: nullIfEmpty(values.last_contact_medium),
-          ideal_tone: nullIfEmpty(values.ideal_tone),
-          memory: nullIfEmpty(values.memory),
-          shared_element: nullIfEmpty(values.shared_element),
-          invite_status: values.invite_status,
-          response_status: values.response_status,
-          notes: nullIfEmpty(values.notes),
-        };
-        const saved = await updateGuest(guest.id, body);
-        onSuccess(saved);
-      } else {
-        const body: GuestCreate = {
-          name: values.name,
-          nickname: nullIfEmpty(values.nickname),
-          relationship_type: nullIfEmpty(values.relationship_type),
-          city: nullIfEmpty(values.city),
-          state: nullIfEmpty(values.state),
-          is_distant: values.is_distant,
-          friendship_level: nullIfEmpty(values.friendship_level),
-          intimacy: nullIfEmpty(values.intimacy),
-          contact_frequency: nullIfEmpty(values.contact_frequency),
-          last_contact_medium: nullIfEmpty(values.last_contact_medium),
-          ideal_tone: nullIfEmpty(values.ideal_tone),
-          memory: nullIfEmpty(values.memory),
-          shared_element: nullIfEmpty(values.shared_element),
-          invite_status: values.invite_status,
-          response_status: values.response_status,
-          notes: nullIfEmpty(values.notes),
-        };
-        const saved = await createGuest(body);
-        onSuccess(saved);
-      }
+      const body: GuestUpdate = {
+        name: values.name,
+        age_group: nullIfEmpty(values.age_group),
+        nickname: nullIfEmpty(values.nickname),
+        relationship_type: nullIfEmpty(values.relationship_type),
+        city: nullIfEmpty(values.city),
+        state: nullIfEmpty(values.state),
+        is_distant: values.is_distant,
+        friendship_level: nullIfEmpty(values.friendship_level),
+        intimacy: nullIfEmpty(values.intimacy),
+        contact_frequency: nullIfEmpty(values.contact_frequency),
+        last_contact_medium: nullIfEmpty(values.last_contact_medium),
+        ideal_tone: nullIfEmpty(values.ideal_tone),
+        memory: nullIfEmpty(values.memory),
+        shared_element: nullIfEmpty(values.shared_element),
+        invite_status: values.invite_status,
+        response_status: values.response_status,
+        notes: nullIfEmpty(values.notes),
+      };
+      const saved = await updateGuest(guest.id, body);
+      onSuccess(saved);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Erro ao salvar convidado");
     } finally {
@@ -315,7 +698,7 @@ function GuestFormModal({
       <div className="relative bg-white dark:bg-stone-900 rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col border border-stone-200 dark:border-stone-700">
         <div className="flex justify-between items-center px-6 py-4 border-b border-stone-200 dark:border-stone-700">
           <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-            {isEdit ? "Editar convidado" : "Adicionar convidado"}
+            Editar convidado
           </h2>
           <button
             onClick={onClose}
@@ -340,24 +723,28 @@ function GuestFormModal({
             <h3 className={sectionHeadingClass}>Dados pessoais</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
-                <label htmlFor="name" className={labelClass}>
+                <label htmlFor="edit-name" className={labelClass}>
                   Nome <span className="text-red-500">*</span>
                 </label>
                 <input
-                  id="name"
+                  id="edit-name"
                   type="text"
                   {...register("name", { required: "Nome é obrigatório" })}
                   className={inputClass}
                   placeholder="Nome completo"
                 />
                 {errors.name && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
               <div>
-                <label htmlFor="nickname" className={labelClass}>Apelido</label>
+                <label htmlFor="edit-nickname" className={labelClass}>
+                  Apelido
+                </label>
                 <input
-                  id="nickname"
+                  id="edit-nickname"
                   type="text"
                   {...register("nickname")}
                   className={inputClass}
@@ -365,9 +752,22 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="relationship_type" className={labelClass}>Tipo de relacionamento</label>
+                <label htmlFor="edit-age_group" className={labelClass}>
+                  Faixa etária
+                </label>
+                <select id="edit-age_group" {...register("age_group")} className={inputClass}>
+                  <option value="">Selecione...</option>
+                  <option value="criança">Criança</option>
+                  <option value="adulto">Adulto</option>
+                  <option value="idoso">Idoso</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="edit-relationship_type" className={labelClass}>
+                  Tipo de relacionamento
+                </label>
                 <input
-                  id="relationship_type"
+                  id="edit-relationship_type"
                   type="text"
                   {...register("relationship_type")}
                   className={inputClass}
@@ -375,9 +775,11 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="city" className={labelClass}>Cidade</label>
+                <label htmlFor="edit-city" className={labelClass}>
+                  Cidade
+                </label>
                 <input
-                  id="city"
+                  id="edit-city"
                   type="text"
                   {...register("city")}
                   className={inputClass}
@@ -385,9 +787,11 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="state" className={labelClass}>Estado</label>
+                <label htmlFor="edit-state" className={labelClass}>
+                  Estado
+                </label>
                 <input
-                  id="state"
+                  id="edit-state"
                   type="text"
                   {...register("state")}
                   className={inputClass}
@@ -396,12 +800,15 @@ function GuestFormModal({
               </div>
               <div className="sm:col-span-2 flex items-center gap-2">
                 <input
-                  id="is_distant"
+                  id="edit-is_distant"
                   type="checkbox"
                   {...register("is_distant")}
                   className="h-4 w-4 rounded border-stone-300 dark:border-stone-600 text-stone-900 focus:ring-stone-500"
                 />
-                <label htmlFor="is_distant" className="text-sm text-stone-600 dark:text-stone-400">
+                <label
+                  htmlFor="edit-is_distant"
+                  className="text-sm text-stone-600 dark:text-stone-400"
+                >
                   Convidado distante (mora longe ou contato raro)
                 </label>
               </div>
@@ -412,9 +819,11 @@ function GuestFormModal({
             <h3 className={sectionHeadingClass}>Contexto para IA</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="friendship_level" className={labelClass}>Nível de amizade</label>
+                <label htmlFor="edit-friendship_level" className={labelClass}>
+                  Nível de amizade
+                </label>
                 <input
-                  id="friendship_level"
+                  id="edit-friendship_level"
                   type="text"
                   {...register("friendship_level")}
                   className={inputClass}
@@ -422,8 +831,10 @@ function GuestFormModal({
                 />
               </div>
               <div>
-                <label htmlFor="intimacy" className={labelClass}>Intimidade</label>
-                <select id="intimacy" {...register("intimacy")} className={inputClass}>
+                <label htmlFor="edit-intimacy" className={labelClass}>
+                  Intimidade
+                </label>
+                <select id="edit-intimacy" {...register("intimacy")} className={inputClass}>
                   <option value="">Selecione...</option>
                   <option value="muito próximo">Muito próximo</option>
                   <option value="próximo">Próximo</option>
@@ -432,8 +843,14 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="contact_frequency" className={labelClass}>Frequência de contato</label>
-                <select id="contact_frequency" {...register("contact_frequency")} className={inputClass}>
+                <label htmlFor="edit-contact_frequency" className={labelClass}>
+                  Frequência de contato
+                </label>
+                <select
+                  id="edit-contact_frequency"
+                  {...register("contact_frequency")}
+                  className={inputClass}
+                >
                   <option value="">Selecione...</option>
                   <option value="diário">Diário</option>
                   <option value="semanal">Semanal</option>
@@ -442,8 +859,14 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="last_contact_medium" className={labelClass}>Último meio de contato</label>
-                <select id="last_contact_medium" {...register("last_contact_medium")} className={inputClass}>
+                <label htmlFor="edit-last_contact_medium" className={labelClass}>
+                  Último meio de contato
+                </label>
+                <select
+                  id="edit-last_contact_medium"
+                  {...register("last_contact_medium")}
+                  className={inputClass}
+                >
                   <option value="">Selecione...</option>
                   <option value="WhatsApp">WhatsApp</option>
                   <option value="telefone">Telefone</option>
@@ -453,8 +876,10 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="ideal_tone" className={labelClass}>Tom ideal</label>
-                <select id="ideal_tone" {...register("ideal_tone")} className={inputClass}>
+                <label htmlFor="edit-ideal_tone" className={labelClass}>
+                  Tom ideal
+                </label>
+                <select id="edit-ideal_tone" {...register("ideal_tone")} className={inputClass}>
                   <option value="">Selecione...</option>
                   <option value="formal">Formal</option>
                   <option value="descontraído">Descontraído</option>
@@ -463,9 +888,11 @@ function GuestFormModal({
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="memory" className={labelClass}>Memória / história</label>
+                <label htmlFor="edit-memory" className={labelClass}>
+                  Memória / história
+                </label>
                 <textarea
-                  id="memory"
+                  id="edit-memory"
                   {...register("memory")}
                   className={inputClass}
                   rows={3}
@@ -473,9 +900,11 @@ function GuestFormModal({
                 />
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="shared_element" className={labelClass}>Elemento compartilhado</label>
+                <label htmlFor="edit-shared_element" className={labelClass}>
+                  Elemento compartilhado
+                </label>
                 <textarea
-                  id="shared_element"
+                  id="edit-shared_element"
                   {...register("shared_element")}
                   className={inputClass}
                   rows={2}
@@ -489,8 +918,14 @@ function GuestFormModal({
             <h3 className={sectionHeadingClass}>Status e observações</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="invite_status" className={labelClass}>Status do convite</label>
-                <select id="invite_status" {...register("invite_status")} className={inputClass}>
+                <label htmlFor="edit-invite_status" className={labelClass}>
+                  Status do convite
+                </label>
+                <select
+                  id="edit-invite_status"
+                  {...register("invite_status")}
+                  className={inputClass}
+                >
                   {inviteStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -499,8 +934,14 @@ function GuestFormModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="response_status" className={labelClass}>Status da resposta</label>
-                <select id="response_status" {...register("response_status")} className={inputClass}>
+                <label htmlFor="edit-response_status" className={labelClass}>
+                  Status da resposta
+                </label>
+                <select
+                  id="edit-response_status"
+                  {...register("response_status")}
+                  className={inputClass}
+                >
                   {responseStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -509,9 +950,11 @@ function GuestFormModal({
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label htmlFor="notes" className={labelClass}>Observações</label>
+                <label htmlFor="edit-notes" className={labelClass}>
+                  Observações
+                </label>
                 <textarea
-                  id="notes"
+                  id="edit-notes"
                   {...register("notes")}
                   className={inputClass}
                   rows={3}
@@ -536,13 +979,17 @@ function GuestFormModal({
             onClick={handleSubmit(onSubmit)}
             className="px-4 py-2 text-sm text-white bg-stone-900 dark:bg-stone-100 dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 disabled:opacity-50 transition-colors"
           >
-            {submitting ? "Salvando..." : isEdit ? "Salvar alterações" : "Adicionar"}
+            {submitting ? "Salvando..." : "Salvar alterações"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export default function GuestsPage() {
   const { isAuthenticated, logout, isLoading } = useAuth();
@@ -552,9 +999,9 @@ export default function GuestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<GuestRead | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [modalGuest, setModalGuest] = useState<GuestRead | undefined>(undefined);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [inviteGuest, setInviteGuest] = useState<GuestRead | null>(null);
+  const [editGuest, setEditGuest] = useState<GuestRead | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [chatGuest, setChatGuest] = useState<GuestRead | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -600,23 +1047,19 @@ export default function GuestsPage() {
     }
   };
 
-  const openAddModal = () => {
-    setModalGuest(undefined);
-    setModalOpen(true);
+  const handleCreateSuccess = (saved: GuestRead) => {
+    setCreateOpen(false);
+    setGuests((prev) => [...prev, saved]);
+    fetchGuests(); // refresh to pick up cônjuge/afiliados too
   };
 
-  const openEditModal = (guest: GuestRead) => {
-    setModalGuest(guest);
-    setModalOpen(true);
+  const handleEditSuccess = (saved: GuestRead) => {
+    setEditGuest(null);
+    setGuests((prev) => prev.map((g) => (g.id === saved.id ? saved : g)));
   };
 
-  const handleModalSuccess = (saved: GuestRead) => {
-    setModalOpen(false);
-    if (modalGuest) {
-      setGuests((prev) => prev.map((g) => (g.id === saved.id ? saved : g)));
-    } else {
-      setGuests((prev) => [...prev, saved]);
-    }
+  const handleGuestUpdatedByChat = (updated: GuestRead) => {
+    setGuests((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
   };
 
   if (isLoading || !isAuthenticated) {
@@ -633,7 +1076,10 @@ export default function GuestsPage() {
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-8">
-              <Link href="/dashboard" className="text-base font-semibold text-stone-900 dark:text-stone-100 tracking-tight">
+              <Link
+                href="/dashboard"
+                className="text-base font-semibold text-stone-900 dark:text-stone-100 tracking-tight"
+              >
                 Wedding Inviter
               </Link>
               <Link
@@ -668,7 +1114,7 @@ export default function GuestsPage() {
             Convidados
           </h1>
           <button
-            onClick={openAddModal}
+            onClick={() => setCreateOpen(true)}
             className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 transition-colors text-sm font-medium"
           >
             Adicionar convidado
@@ -687,9 +1133,11 @@ export default function GuestsPage() {
           </div>
         ) : guests.length === 0 ? (
           <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 p-12 text-center">
-            <p className="text-stone-400 dark:text-stone-500 text-sm mb-4">Nenhum convidado cadastrado ainda.</p>
+            <p className="text-stone-400 dark:text-stone-500 text-sm mb-4">
+              Nenhum convidado cadastrado ainda.
+            </p>
             <button
-              onClick={openAddModal}
+              onClick={() => setCreateOpen(true)}
               className="inline-flex items-center px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg hover:bg-stone-700 dark:hover:bg-stone-200 transition-colors text-sm font-medium"
             >
               Adicionar primeiro convidado
@@ -704,10 +1152,10 @@ export default function GuestsPage() {
                     Nome
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                    Cidade/Estado
+                    Relação
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                    Intimidade
+                    Faixa etária
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                     Convite
@@ -722,20 +1170,25 @@ export default function GuestsPage() {
               </thead>
               <tbody className="bg-white dark:bg-stone-900 divide-y divide-stone-200 dark:divide-stone-700">
                 {guests.map((guest) => (
-                  <tr key={guest.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                  <tr
+                    key={guest.id}
+                    className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-stone-900 dark:text-stone-100">{guest.name}</div>
+                      <div className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                        {guest.name}
+                      </div>
                       {guest.nickname && (
-                        <div className="text-xs text-stone-400 dark:text-stone-500">{guest.nickname}</div>
+                        <div className="text-xs text-stone-400 dark:text-stone-500">
+                          {guest.nickname}
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500 dark:text-stone-400">
-                      {guest.city && guest.state
-                        ? `${guest.city}/${guest.state}`
-                        : guest.city || guest.state || "—"}
+                      {guest.relationship_type || "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-500 dark:text-stone-400">
-                      {guest.intimacy || "—"}
+                      {guest.age_group || "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <InviteStatusBadge status={guest.invite_status} />
@@ -746,13 +1199,13 @@ export default function GuestsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => setInviteGuest(guest)}
+                          onClick={() => setChatGuest(guest)}
                           className="px-3 py-1 text-xs text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-700 rounded hover:bg-amber-50 dark:hover:bg-amber-950 transition-colors"
                         >
-                          Gerar
+                          Redigir convite
                         </button>
                         <button
-                          onClick={() => openEditModal(guest)}
+                          onClick={() => setEditGuest(guest)}
                           className="px-3 py-1 text-xs text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-600 rounded hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
                         >
                           Editar
@@ -781,18 +1234,23 @@ export default function GuestsPage() {
         />
       )}
 
-      {modalOpen && (
-        <GuestFormModal
-          guest={modalGuest}
-          onClose={() => setModalOpen(false)}
-          onSuccess={handleModalSuccess}
+      {createOpen && (
+        <GuestCreateModal onClose={() => setCreateOpen(false)} onSuccess={handleCreateSuccess} />
+      )}
+
+      {editGuest && (
+        <GuestEditModal
+          guest={editGuest}
+          onClose={() => setEditGuest(null)}
+          onSuccess={handleEditSuccess}
         />
       )}
 
-      {inviteGuest && (
-        <InviteMessageModal
-          guest={inviteGuest}
-          onClose={() => setInviteGuest(null)}
+      {chatGuest && (
+        <InviteChatModal
+          guest={chatGuest}
+          onClose={() => setChatGuest(null)}
+          onGuestUpdated={handleGuestUpdatedByChat}
         />
       )}
     </div>

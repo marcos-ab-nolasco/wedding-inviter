@@ -32,6 +32,7 @@ class Guest(Base):
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     state: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_distant: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    age_group: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # AI context fields (free-text strings — no DB enums)
     friendship_level: Mapped[str | None] = mapped_column(String(100), nullable=True)

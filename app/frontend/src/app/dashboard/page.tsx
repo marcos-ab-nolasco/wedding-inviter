@@ -18,12 +18,33 @@ function ThemeToggle() {
       className="p-1.5 rounded-md text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
     >
       {theme === "dark" ? (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
         </svg>
       ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
       )}
     </button>
@@ -44,18 +65,22 @@ export default function DashboardPage() {
   }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isAuthenticated) return;
+    const load = async () => {
       setLoadingGuests(true);
       setGuestLoadError(null);
-      listGuests()
-        .then(setGuests)
-        .catch((err) => {
-          setGuestLoadError(
-            err instanceof Error ? err.message : "Erro ao carregar estatísticas dos convidados"
-          );
-        })
-        .finally(() => setLoadingGuests(false));
-    }
+      try {
+        const data = await listGuests();
+        setGuests(data);
+      } catch (err) {
+        setGuestLoadError(
+          err instanceof Error ? err.message : "Erro ao carregar estatísticas dos convidados"
+        );
+      } finally {
+        setLoadingGuests(false);
+      }
+    };
+    load();
   }, [isAuthenticated]);
 
   const handleLogout = async () => {
@@ -82,7 +107,8 @@ export default function DashboardPage() {
     },
     {
       label: "Confirmados",
-      value: guests.filter((g) => normalizeResponseStatus(g.response_status) === "confirmed").length,
+      value: guests.filter((g) => normalizeResponseStatus(g.response_status) === "confirmed")
+        .length,
       description: "confirmaram presença",
       valueClass: "text-emerald-700 dark:text-emerald-400",
     },
@@ -166,7 +192,9 @@ export default function DashboardPage() {
               {loadingGuests ? (
                 <div className="h-10 w-16 bg-stone-100 dark:bg-stone-700 rounded animate-pulse" />
               ) : guestLoadError ? (
-                <p className="text-4xl font-bold tabular-nums text-stone-300 dark:text-stone-600">N/D</p>
+                <p className="text-4xl font-bold tabular-nums text-stone-300 dark:text-stone-600">
+                  N/D
+                </p>
               ) : (
                 <p className={`text-4xl font-bold tabular-nums ${stat.valueClass}`}>{stat.value}</p>
               )}

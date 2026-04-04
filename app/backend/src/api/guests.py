@@ -9,8 +9,16 @@ from src.core.dependencies import get_current_user
 from src.core.rate_limit import limiter_authenticated
 from src.db.models.user import User
 from src.db.session import get_db
-from src.schemas.guest import GuestCreate, GuestList, GuestRead, GuestUpdate, InviteMessageResponse
-from src.services import guest_service, invite_service
+from src.schemas.guest import (
+    ChatRequest,
+    ChatResponse,
+    GuestCreate,
+    GuestList,
+    GuestRead,
+    GuestUpdate,
+    InviteMessageResponse,
+)
+from src.services import chat_service, guest_service, invite_service
 
 router = APIRouter(prefix="/guests", tags=["guests"])
 
@@ -134,3 +142,36 @@ async def generate_invite_message(
 
     logger.info(f"Invite generated: guest_id={guest_id} wedding_id={current_user.wedding_id}")
     return InviteMessageResponse(guest_id=guest_id, variations=variations)
+
+
+@router.post("/{guest_id}/chat", response_model=ChatResponse)
+@limiter_authenticated.limit("30/minute")
+async def chat_invite(
+    request: Request,
+    guest_id: UUID,
+    data: ChatRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ChatResponse:
+    """Conversational invite writer — returns next chatbot message or final invite."""
+    if current_user.wedding_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not linked to a wedding",
+        )
+
+    guest = await guest_service.get_guest(db, guest_id, current_user.wedding_id)
+    if guest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Guest not found",
+        )
+
+    guest_schema = GuestRead.model_validate(guest)
+    result = await chat_service.chat_turn(guest_schema, data.history)
+
+    logger.info(
+        f"Chat turn: guest_id={guest_id} wedding_id={current_user.wedding_id} "
+        f"is_complete={result.is_complete}"
+    )
+    return result

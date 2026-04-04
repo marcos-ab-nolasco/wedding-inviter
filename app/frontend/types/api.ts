@@ -168,26 +168,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/guests/{guest_id}/invite-message": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Generate Invite Message
-     * @description Generate personalized WhatsApp invite message variations for a guest using AI.
-     */
-    post: operations["generate_invite_message_guests__guest_id__invite_message_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/guests/{guest_id}": {
     parameters: {
       query?: never;
@@ -210,6 +190,46 @@ export interface paths {
      * @description Partially update a guest belonging to the authenticated user's wedding.
      */
     patch: operations["update_guest_guests__guest_id__patch"];
+    trace?: never;
+  };
+  "/guests/{guest_id}/invite-message": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generate Invite Message
+     * @description Generate personalized WhatsApp invite message variations for a guest using AI.
+     */
+    post: operations["generate_invite_message_guests__guest_id__invite_message_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/guests/{guest_id}/chat": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Chat Invite
+     * @description Conversational invite writer — returns next chatbot message or final invite.
+     */
+    post: operations["chat_invite_guests__guest_id__chat_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/health_check": {
@@ -239,10 +259,40 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ChatMessage */
+    ChatMessage: {
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "user" | "assistant";
+      /** Content */
+      content: string;
+    };
+    /** ChatRequest */
+    ChatRequest: {
+      /** History */
+      history: components["schemas"]["ChatMessage"][];
+    };
+    /** ChatResponse */
+    ChatResponse: {
+      /** Message */
+      message: string;
+      /** Is Complete */
+      is_complete: boolean;
+      /** Invite Text */
+      invite_text?: string | null;
+      /** Fields To Update */
+      fields_to_update?: {
+        [key: string]: string | null;
+      } | null;
+    };
     /** GuestCreate */
     GuestCreate: {
       /** Name */
       name: string;
+      /** Age Group */
+      age_group?: string | null;
       /** Nickname */
       nickname?: string | null;
       /** Relationship Type */
@@ -302,6 +352,8 @@ export interface components {
       wedding_id: string;
       /** Name */
       name: string;
+      /** Age Group */
+      age_group?: string | null;
       /** Nickname */
       nickname?: string | null;
       /** Relationship Type */
@@ -343,27 +395,12 @@ export interface components {
        */
       updated_at: string;
     };
-    /** InviteMessageVariation */
-    InviteMessageVariation: {
-      /** Tone */
-      tone: string;
-      /** Message */
-      message: string;
-    };
-    /** InviteMessageResponse */
-    InviteMessageResponse: {
-      /**
-       * Guest Id
-       * Format: uuid
-       */
-      guest_id: string;
-      /** Variations */
-      variations: components["schemas"]["InviteMessageVariation"][];
-    };
     /** GuestUpdate */
     GuestUpdate: {
       /** Name */
       name?: string | null;
+      /** Age Group */
+      age_group?: string | null;
       /** Nickname */
       nickname?: string | null;
       /** Relationship Type */
@@ -399,6 +436,23 @@ export interface components {
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /** InviteMessageResponse */
+    InviteMessageResponse: {
+      /**
+       * Guest Id
+       * Format: uuid
+       */
+      guest_id: string;
+      /** Variations */
+      variations: components["schemas"]["InviteMessageVariation"][];
+    };
+    /** InviteMessageVariation */
+    InviteMessageVariation: {
+      /** Tone */
+      tone: string;
+      /** Message */
+      message: string;
     };
     /** InviteTokenResponse */
     InviteTokenResponse: {
@@ -477,6 +531,10 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
     };
     /** WeddingMemberRead */
     WeddingMemberRead: {
@@ -812,6 +870,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["InviteMessageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  chat_invite_guests__guest_id__chat_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        guest_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChatRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChatResponse"];
         };
       };
       /** @description Validation Error */
